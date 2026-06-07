@@ -13,9 +13,14 @@ import {
   setSessionState,
   setStreamedText,
   setRequestMeta,
+  setErrorInfo,
+  setTurnCount,
+  turnCount,
+  sessionState,
+  multiTurnEnabled,
 } from "../signals/session";
 import { setOverlayVisible } from "../signals/overlay";
-import { setBackendStatus, applyThemeFromSettings } from "../signals/settings";
+import { setBackendStatus, setAppSettings, applyThemeFromSettings } from "../signals/settings";
 
 /** Register all Rust-emitted event listeners. Returns cleanup function. */
 export async function setupEventListeners(): Promise<() => void> {
@@ -28,12 +33,16 @@ export async function setupEventListeners(): Promise<() => void> {
       setOverlayVisible(false);
     }),
 
+    // stream:start — fired when Rust spawns the task; go to "connecting" while HTTP call is in flight
     listen<{ request_id: string }>("stream:start", () => {
-      setSessionState("streaming");
+      setSessionState("connecting");
       setStreamedText("");
+      setErrorInfo(null);
     }),
 
+    // stream:chunk — first chunk upgrades "connecting" → "streaming"; subsequent ones just update text
     listen<StreamChunkPayload>("stream:chunk", (event) => {
+      if (sessionState() !== "streaming") setSessionState("streaming");
       setStreamedText(event.payload.accumulated);
     }),
 
@@ -46,22 +55,44 @@ export async function setupEventListeners(): Promise<() => void> {
         token_count: event.payload.token_count,
         model: "",
       });
+      // Increment turn counter if multi-turn is active
+      if (multiTurnEnabled()) {
+        setTurnCount(turnCount() + 1);
+      }
     }),
 
-    listen<StreamErrorPayload>("stream:error", (_event) => {
+    // stream:cancelled — user pressed Stop; keep partial text visible
+    listen<{ request_id: string; partial_text: string }>("stream:cancelled", (event) => {
+      setSessionState("cancelled");
+      setStreamedText(event.payload.partial_text);
+    }),
+
+    listen<StreamErrorPayload>("stream:error", (event) => {
       setSessionState("failed");
+      setErrorInfo({
+        message: event.payload.error,
+        error_type: event.payload.error_type,
+        retryable: !["auth", "config", "model"].includes(event.payload.error_type),
+      });
     }),
 
     listen<{ settings: AppSettings }>("settings:updated", (event) => {
+      setAppSettings(event.payload.settings);
       applyThemeFromSettings(event.payload.settings.theme);
     }),
 
-    listen("backend:ready", () => {
+    listen<{ models: string[] }>("backend:ready", () => {
       setBackendStatus("ready");
     }),
 
-    listen<{ reason: string }>("backend:unavailable", () => {
-      setBackendStatus("unreachable");
+    listen<{ reason: string; reason_type: string }>("backend:unavailable", (event) => {
+      const t = event.payload.reason_type;
+      if (t === "model_missing") setBackendStatus("model_missing");
+      else setBackendStatus("unreachable");
+    }),
+
+    listen("session:history_cleared", () => {
+      setTurnCount(0);
     }),
   ]);
 

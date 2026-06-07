@@ -7,13 +7,22 @@ use reqwest::Client;
 use serde::Deserialize;
 use std::time::Duration;
 
+/// Distinct result for the health check endpoint.
+/// NVIDIA hosted NIM does not always expose /v1/health/ready.
+pub enum HealthCheckError {
+    /// 404 — endpoint absent, caller should treat as non-fatal
+    NotFound,
+    /// Auth, network, or server error
+    Other(NimError),
+}
+
 /// Model info returned by GET /v1/models.
 #[derive(Debug, Deserialize)]
 pub struct ModelInfo {
     pub id: String,
 }
 
-/// Response from GET /v1/models.
+/// Response envelope from GET /v1/models.
 #[derive(Debug, Deserialize)]
 struct ModelsResponse {
     data: Vec<ModelInfo>,
@@ -26,13 +35,12 @@ pub struct StreamChunk {
     pub finish_reason: Option<String>,
 }
 
-/// NIM HTTP client. Reuse one instance per settings configuration.
+/// NIM HTTP client. One instance per settings configuration.
 pub struct NimClient {
     http: Client,
     pub base_url: String,
     pub api_key: String,
     pub model: String,
-    pub timeout: Duration,
 }
 
 impl NimClient {
@@ -48,14 +56,13 @@ impl NimClient {
             base_url: settings.nim_base_url.trim_end_matches('/').to_string(),
             api_key: settings.nim_api_key.clone(),
             model: settings.nim_model.clone(),
-            timeout: Duration::from_secs(settings.request_timeout_secs),
         }
     }
 
-    /// Creates a temporary client for testing with provided credentials.
+    /// Creates a temporary client for connection testing.
     pub fn for_test(base_url: &str, api_key: &str) -> Self {
         let http = Client::builder()
-            .timeout(Duration::from_secs(10))
+            .timeout(Duration::from_secs(15))
             .build()
             .unwrap_or_default();
 
@@ -64,12 +71,12 @@ impl NimClient {
             base_url: base_url.trim_end_matches('/').to_string(),
             api_key: api_key.to_string(),
             model: String::new(),
-            timeout: Duration::from_secs(10),
         }
     }
 
-    /// Checks if the NIM server is reachable via GET /v1/health/ready.
-    pub async fn check_health(&self) -> Result<bool, NimError> {
+    /// Checks NIM server readiness via GET /v1/health/ready.
+    /// Returns `HealthCheckError::NotFound` for 404 — caller treats that as non-fatal.
+    pub async fn check_health(&self) -> Result<bool, HealthCheckError> {
         let url = format!("{}/v1/health/ready", self.base_url);
         let resp = self
             .http
@@ -77,7 +84,11 @@ impl NimClient {
             .bearer_auth(&self.api_key)
             .send()
             .await
-            .map_err(|e| NimError::NetworkError(e.to_string()))?;
+            .map_err(|e| HealthCheckError::Other(NimError::NetworkError(e.to_string())))?;
+
+        if resp.status().as_u16() == 404 {
+            return Err(HealthCheckError::NotFound);
+        }
 
         Ok(resp.status().is_success())
     }
@@ -95,6 +106,7 @@ impl NimClient {
 
         match resp.status().as_u16() {
             401 | 403 => return Err(NimError::AuthError),
+            404 => return Err(NimError::NetworkError("Endpoint not found".into())),
             s if s >= 500 => return Err(NimError::ServerError(format!("HTTP {s}"))),
             _ => {}
         }
@@ -108,7 +120,7 @@ impl NimClient {
     }
 
     /// Sends a streaming chat completion request.
-    /// Returns an async stream of StreamChunks.
+    /// Returns an async stream of `StreamChunk`s.
     pub async fn chat_completion_stream(
         &self,
         messages: Vec<ChatMessage>,
@@ -143,14 +155,13 @@ impl NimClient {
         match resp.status().as_u16() {
             401 | 403 => return Err(NimError::AuthError),
             404 => return Err(NimError::ModelNotFound(self.model.clone())),
+            422 => return Err(NimError::ConfigError("Invalid request parameters".into())),
             s if s >= 500 => return Err(NimError::ServerError(format!("HTTP {s}"))),
             _ => {}
         }
 
-        // Convert the response byte stream into a stream of StreamChunks
         let byte_stream = resp.bytes_stream();
         let chunk_stream = crate::stream_parser::parse_sse_stream(byte_stream);
-
         Ok(chunk_stream)
     }
 }

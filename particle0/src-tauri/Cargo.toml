@@ -49,6 +49,9 @@ bytes = "1"
 # Logging
 log = "0.4"
 
+[target.'cfg(windows)'.dependencies]
+winreg = "0.52"
+
 [profile.release]
 # Optimize for size — keeps the binary lean
 opt-level = "s"

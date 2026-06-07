@@ -192,12 +192,15 @@ particle0/                        ← workspace root
 | Phase | Status | Summary |
 |---|---|---|
 | Phase 0 | ✅ Complete | Project bootstrap: Tauri 2 + SolidJS + Tailwind v4 |
-| Phase 1 | 🔄 Next | Desktop shell & window management |
-| Phase 2 | ⬜ Pending | UI shell & theming |
-| Phase 3 | ⬜ Pending | NIM integration & settings persistence |
+| Phase 1 | ✅ Complete | Desktop shell & window management |
+| Phase 2 | ✅ Complete | UI shell & theming |
+| Phase 3 | 🔄 Next | NIM integration & settings persistence |
 | Phase 4 | ⬜ Pending | Streaming pipeline |
 | Phase 5 | ⬜ Pending | Session orchestration & conversation memory |
-| Phase 6 | ⬜ Pending | Settings panel & first-run experience |
+| Phase 3 | ✅ Done | NIM integration & settings persistence |
+| Phase 4 | ✅ Done | Streaming pipeline — SSE, events, cancel |
+| Phase 5 | ✅ Done | Session orchestration & conversation memory |
+| Phase 6 | ✅ Done | Settings panel & first-run experience |
 | Phase 7 | ⬜ Pending | Edge cases, error handling & polish |
 | Phase 8 | ⬜ Pending | Testing, building & packaging |
 
@@ -215,6 +218,80 @@ particle0/                        ← workspace root
 - Tauri CLI: installed via `cargo install tauri-cli` or `npm`
 
 ---
+
+## Phase 6 Notes (Settings Panel & First-Run)
+
+- `SettingsPanel.tsx` fully implemented: Connection (URL, API key, Test, Model), Appearance (theme), Behavior (hotkey, autostart toggle), Advanced (temperature, max tokens, timeout), Save/Reset
+- Local `draft` signal in `SettingsPanel` — only flushed to Rust on Save; never mutates global `appSettings` directly except after successful save
+- Test connection: calls `testConnection(url, key)`, populates model dropdown; auto-selects first model if current draft model is empty or not in list
+- Hotkey editor: "listening" mode captures `keydown`, `buildShortcut()` converts browser KeyboardEvent → Tauri shortcut string (e.g. "Alt+Space"); requires at least one modifier; `updateHotkey` called immediately for live validation
+- Theme toggle: 3-button row (dark/light/system); calls `applyThemeFromSettings` on Save
+- Autostart: `winreg = "0.52"` added to Cargo.toml under `[target.'cfg(windows)'.dependencies]`; `toggle_autostart` command writes/deletes `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\particle0`
+- First-run detection in `App.tsx` onMount: if `settings.nim_api_key || nim_model` is empty → `setSettingsOpen(true)` (opens settings panel automatically)
+- `setAppSettings` signal now updated in `App.tsx` after `load_settings` and in `tauri-events.ts` after `settings:updated` event
+- `settings:updated` event now also calls `setAppSettings` (was previously only applying theme)
+
+## Phase 5 Notes (Session Orchestration & Conversation Memory)
+
+- `submit_prompt` now checks `is_configured()` before accepting a request — returns a friendly error if NIM is not set up
+- History size guard: `MAX_HISTORY_MESSAGES = 40` (20 turns); history is sliced to the most recent 39 messages before appending the new user turn — prevents context window overflow
+- `clear_history` command: clears `AppState.conversation_history` without touching `multi_turn_enabled`; emits `session:history_cleared` to the frontend
+- `get_turn_count` command: returns `history.len() / 2` (completed user+assistant pairs)
+- `turnCount` signal in `session.ts` tracks turns on the frontend; incremented on `stream:end` when multi-turn is active; reset on `session:history_cleared` or multi-turn toggle-off
+- Footer indicator: shows `turn N` (e.g. "turn 3") when in a multi-turn session with history, or "multi-turn" when no history yet
+- `handleClear` in `Overlay.tsx` calls `clearHistory()` if multi-turn is active, resetting Rust-side history as well as frontend state
+- Toggling multi-turn OFF: Rust side calls `conversation_history.clear()` inside `set_multi_turn`; frontend syncs `turnCount` to 0
+- Multi-turn toggle button label changed: "memory on" vs "memory" for clarity
+
+## Phase 4 Notes (Streaming Pipeline)
+
+- State machine: `idle` → `connecting` (submit pressed) → `streaming` (first chunk) → `completed` / `cancelled` / `failed`
+- `stream:start` event sets `connecting`; first `stream:chunk` upgrades to `streaming`
+- `stream:cancelled` is a new Rust-emitted event (distinct from `stream:end`); fired when `cancel_requested` is true after the loop breaks; keeps partial text
+- `cancel_requested` is reset to `false` in `AppState` after stream cleanup (Rust side)
+- Multi-turn history is only appended on clean completion (not on cancel/error)
+- `handleSubmit` in `Overlay.tsx` immediately sets `connecting` state + clears streamed text and error before awaiting the Tauri command — no waiting for `stream:start` event
+- Connecting-state UI: three pulsing dots + "Connecting…" label shown while `sessionState === "connecting"` and before first token
+- Token batching: emit every ≥16ms or ≥64 chars to balance responsiveness vs. IPC overhead
+- `showAnswer` now includes `"connecting"` state so the placeholder dots appear immediately
+
+## Phase 3 Notes (NIM Integration & Settings Persistence)
+
+- `HealthCheckError` enum added to `nim_client.rs` — `NotFound` variant lets the startup pipeline skip `/v1/health/ready` gracefully (NVIDIA hosted NIM does not always expose this endpoint)
+- Startup validation pipeline in `lib.rs` (`validate_nim_backend`): health check (404 = non-fatal) → list models → check configured model exists → emit `backend:ready` or `backend:unavailable`
+- `BackendStatus` updated in `AppState` at each step so `get_backend_status` command always reflects current state
+- `test_connection` now returns a typed `ConnectionTestResult` struct (`success`, `models`, `error`) instead of raw `serde_json::Value`
+- `get_backend_status` command added — called on frontend mount to sync initial status before events arrive (covers window-open race)
+- `save_settings` re-triggers `validate_nim_backend` in a background task after storing new settings
+- `tauri-events.ts` updated: `backend:unavailable` maps `reason_type == "model_missing"` → `"model_missing"` status, otherwise `"unreachable"`
+- `App.tsx` calls `get_backend_status` + `load_settings` on mount to hydrate frontend state immediately
+- `cargo check`: 0 errors, 4 expected warnings (unused future-phase fields); `tsc --noEmit`: 0 errors
+
+## Phase 2 Notes (UI Shell & Theming)
+
+- `ResizeObserver` on the overlay card div → debounced `resize_overlay(height + 2)` call every 40ms keeps the Tauri window tight to the content
+- Height state machine: `idle→collapsed`, `queued/connecting/streaming→streaming`, anything else→`completed`; driven by `createEffect` in `Overlay.tsx`
+- Multi-turn toggle: button in header, also echoes small badge in footer when enabled; syncs to Rust via `set_multi_turn` command
+- Submit button doubles as a Stop button (shows square icon) when a request is active
+- Global keyboard handler in `Overlay.tsx`: `Ctrl+L`=clear, `Ctrl+C`(no selection)=copy answer
+- `Tab` key is trapped in the textarea — does not focus-leave the overlay
+- `stream:error` event now correctly populates `errorInfo` signal with user-facing message + retryable flag
+- `StatusBar` shows a pulsing "streaming" label during active requests; completion shows token count + elapsed time
+- Dark theme active by default; light/system switchable via `[data-theme]` attribute on `<html>`
+- Vite HMR confirmed working — component edits reflect in the running app without restart
+- `animate-pulse` defined manually in `globals.css` (Tailwind v4 does not auto-generate it)
+
+## Phase 1 Notes (Desktop Shell & Window Management)
+
+- Window label is `"main"` — used in `window_manager.rs` via `app.get_webview_window("main")`
+- First-time `cargo build` takes ~3-4 minutes (415 crates). Subsequent builds are incremental (seconds)
+- Dev binary lives at `src-tauri/target/debug/particle0.exe`
+- App launches with `npm run tauri dev` from `f:/Projects/particle0/particle0/`
+- Window is `visible: true` in dev — in production it should be `false` (toggle via hotkey)
+- `Alt+Space` global hotkey registered on startup — toggles overlay show/hide/focus
+- `window_manager::show_overlay` positions on the monitor containing the mouse cursor
+- `tauri::Emitter` and `tauri::Manager` traits must be explicitly imported wherever `.emit()` or `.state()` is called
+- 6 compile warnings are all intentional (unused fields/methods to be wired in later phases)
 
 ## Phase 0 Notes (Bootstrap)
 

@@ -29,10 +29,19 @@ export function isRequestActive(): boolean {
   return s === "queued" || s === "connecting" || s === "streaming";
 }
 
+/** Number of completed multi-turn exchanges in the current conversation. */
+export const [turnCount, setTurnCount] = createSignal<number>(0);
+
 /** Resets session to idle, clearing output and error state. */
 export function resetSession(): void {
   setSessionState("idle");
   setStreamedText("");
   setErrorInfo(null);
   setRequestMeta(null);
+}
+
+/** Resets session and clears the turn counter (used after clear_history). */
+export function resetSessionAndHistory(): void {
+  resetSession();
+  setTurnCount(0);
 }

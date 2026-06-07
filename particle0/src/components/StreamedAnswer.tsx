@@ -1,65 +1,99 @@
 /**
- * StreamedAnswer — renders the streamed response with markdown-lite formatting.
- * Shows a blinking cursor while streaming. Auto-scrolls to bottom during streaming.
+ * StreamedAnswer — renders the streamed AI response with markdown-lite formatting.
+ * Auto-scrolls to bottom during streaming. Pauses auto-scroll on manual scroll-up.
+ * Shows a blinking cursor while streaming.
  */
 import { Component, Show, createEffect, onMount, onCleanup } from "solid-js";
 import { sessionState, streamedText } from "../signals/session";
-import "../styles/overlay.css";
 
-/** Minimal markdown → HTML conversion. Safe subset only. */
-function renderMarkdown(text: string): string {
-  let html = text
-    // Escape HTML first
+/**
+ * Converts a small subset of markdown to safe HTML.
+ * Only processes: fenced code blocks, inline code, bold, italic, lists, paragraphs.
+ */
+function renderMarkdown(raw: string): string {
+  // Escape HTML entities first to prevent XSS
+  const escaped = raw
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    // Fenced code blocks (``` or ```)
-    .replace(/```[\w]*\n?([\s\S]*?)```/g, "<pre><code>$1</code></pre>")
-    // Inline code
-    .replace(/`([^`]+)`/g, "<code>$1</code>")
-    // Bold
-    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-    // Italic
-    .replace(/_([^_]+)_/g, "<em>$1</em>")
-    // Bullet list items
-    .replace(/^[-*] (.+)$/gm, "<li>$1</li>")
-    // Wrap consecutive <li> in <ul>
-    .replace(/(<li>.*<\/li>\n?)+/g, (m) => `<ul>${m}</ul>`)
-    // Line breaks → paragraphs (double newline)
-    .split(/\n\n+/)
-    .map((block) => {
-      if (block.startsWith("<pre>") || block.startsWith("<ul>")) return block;
-      return `<p>${block.replace(/\n/g, "<br>")}</p>`;
-    })
-    .join("\n");
+    .replace(/"/g, "&quot;");
 
-  return html;
+  // Split into blocks on double newlines (preserving code blocks)
+  const blocks = escaped.split(/\n\n+/);
+
+  const rendered = blocks.map((block) => {
+    // Fenced code block (``` lang \n code ```)
+    if (block.startsWith("```")) {
+      const inner = block.replace(/^```[\w]*\n?/, "").replace(/```$/, "");
+      return `<pre><code>${inner}</code></pre>`;
+    }
+
+    // Apply inline transforms
+    let line = block
+      .replace(/`([^`]+)`/g, "<code>$1</code>")
+      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*([^*]+)\*/g, "<em>$1</em>")
+      .replace(/^#{1,3} (.+)$/gm, (_, t) => `<strong>${t}</strong>`);
+
+    // Unordered list
+    if (/^[-*] /m.test(line)) {
+      const items = line
+        .split("\n")
+        .filter((l) => l.trim())
+        .map((l) => l.replace(/^[-*] /, ""))
+        .map((l) => `<li>${l}</li>`)
+        .join("");
+      return `<ul>${items}</ul>`;
+    }
+
+    // Ordered list
+    if (/^\d+\. /m.test(line)) {
+      const items = line
+        .split("\n")
+        .filter((l) => l.trim())
+        .map((l) => l.replace(/^\d+\. /, ""))
+        .map((l) => `<li>${l}</li>`)
+        .join("");
+      return `<ol>${items}</ol>`;
+    }
+
+    // Regular paragraph — convert single newlines to <br>
+    return `<p>${line.replace(/\n/g, "<br>")}</p>`;
+  });
+
+  return rendered.join("\n");
 }
 
 const StreamedAnswer: Component = () => {
   let containerRef: HTMLDivElement | undefined;
-  let userScrolled = false;
+  let userScrolledUp = false;
 
-  // Track if user has manually scrolled up
   const handleScroll = () => {
     if (!containerRef) return;
-    const atBottom =
-      containerRef.scrollHeight - containerRef.scrollTop - containerRef.clientHeight < 40;
-    userScrolled = !atBottom;
+    const distFromBottom =
+      containerRef.scrollHeight - containerRef.scrollTop - containerRef.clientHeight;
+    userScrolledUp = distFromBottom > 40;
   };
 
-  onMount(() => containerRef?.addEventListener("scroll", handleScroll));
+  onMount(() => containerRef?.addEventListener("scroll", handleScroll, { passive: true }));
   onCleanup(() => containerRef?.removeEventListener("scroll", handleScroll));
 
-  // Auto-scroll to bottom during streaming
+  // Auto-scroll during streaming unless user scrolled up
   createEffect(() => {
-    streamedText(); // track
-    if (sessionState() === "streaming" && !userScrolled && containerRef) {
-      containerRef.scrollTop = containerRef.scrollHeight;
+    const text = streamedText();
+    const state = sessionState();
+
+    if (state === "streaming" && !userScrolledUp && containerRef) {
+      // Use requestAnimationFrame so DOM updates settle first
+      requestAnimationFrame(() => {
+        if (containerRef) containerRef.scrollTop = containerRef.scrollHeight;
+      });
     }
-    // Reset userScrolled when a new session starts
-    if (sessionState() === "streaming" && streamedText() === "") {
-      userScrolled = false;
+
+    // Reset scroll position when a brand-new stream starts
+    if (state === "streaming" && text === "") {
+      userScrolledUp = false;
+      if (containerRef) containerRef.scrollTop = 0;
     }
   });
 
@@ -70,13 +104,10 @@ const StreamedAnswer: Component = () => {
     <Show when={hasContent() || isStreaming()}>
       <div
         ref={containerRef}
-        class="
-          answer-region answer-content selectable
-          px-4 py-2 overflow-y-auto
-          text-sm text-[--color-text-primary] leading-relaxed
-        "
+        class="answer-region answer-content selectable px-4 py-2 overflow-y-auto text-sm text-[--color-text-primary] leading-relaxed"
         style={{ "max-height": "400px" }}
       >
+        {/* Render markdown-converted HTML, with streaming cursor when active */}
         <span
           class={isStreaming() ? "streaming-cursor" : ""}
           innerHTML={renderMarkdown(streamedText())}

@@ -7,22 +7,22 @@ todos:
     status: completed
   - id: phase-1
     content: "Phase 1: Desktop Shell & Window Management — Configure overlay window, build window_manager.rs, define capabilities, register global hotkey, wire toggle cycle"
-    status: pending
+    status: completed
   - id: phase-2
     content: "Phase 2: UI Shell & Theming — Build Overlay, PromptInput, StreamedAnswer, Header, Footer components, implement theme system and height state machine"
-    status: pending
+    status: completed
   - id: phase-3
     content: "Phase 3: NIM Integration & Settings Persistence — Build nim_client.rs, settings.rs, errors.rs, state.rs, startup validation pipeline"
-    status: pending
+    status: completed
   - id: phase-4
     content: "Phase 4: Streaming Pipeline — Build SSE stream_parser.rs, emit streaming events, wire frontend signals, implement cancel stream, connect StreamedAnswer to real data"
-    status: pending
+    status: completed
   - id: phase-5
     content: "Phase 5: Session Orchestration & Conversation Memory — Implement prompt lifecycle state machine, multi-turn conversation toggle, request deduplication"
-    status: pending
+    status: completed
   - id: phase-6
     content: "Phase 6: Settings Panel & First-Run Experience — Build settings UI, test connection flow, hotkey editor, onboarding flow, launch-on-startup"
-    status: pending
+    status: completed
   - id: phase-7
     content: "Phase 7: Edge Cases, Error Handling & Polish — Handle all edge cases, refine keyboard behavior, tune performance, clipboard integration, window resize sync"
     status: pending

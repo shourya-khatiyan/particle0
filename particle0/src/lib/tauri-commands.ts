@@ -62,3 +62,18 @@ export function updateHotkey(shortcut: string): Promise<void> {
 export function setMultiTurn(enabled: boolean): Promise<void> {
   return invoke("set_multi_turn", { enabled });
 }
+
+/** Clear conversation history without disabling multi-turn mode. */
+export function clearHistory(): Promise<void> {
+  return invoke("clear_history");
+}
+
+/** Returns the number of completed turns in the current conversation. */
+export function getTurnCount(): Promise<number> {
+  return invoke("get_turn_count");
+}
+
+/** Enables or disables Windows autostart via registry. */
+export function toggleAutostart(enabled: boolean): Promise<void> {
+  return invoke("toggle_autostart", { enabled });
+}
