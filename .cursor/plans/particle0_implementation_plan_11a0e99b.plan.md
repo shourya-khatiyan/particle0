@@ -25,7 +25,7 @@ todos:
     status: completed
   - id: phase-7
     content: "Phase 7: Edge Cases, Error Handling & Polish — Handle all edge cases, refine keyboard behavior, tune performance, clipboard integration, window resize sync"
-    status: pending
+    status: completed
   - id: phase-8
     content: "Phase 8: Testing, Building & Packaging — Write Rust unit tests for critical paths, production build, NSIS Windows installer"
     status: pending

@@ -20,13 +20,17 @@ import {
   multiTurnEnabled,
 } from "../signals/session";
 import { setOverlayVisible } from "../signals/overlay";
-import { setBackendStatus, setAppSettings, applyThemeFromSettings } from "../signals/settings";
+import { setBackendStatus, setAppSettings, applyThemeFromSettings, setHotkeyRegistered } from "../signals/settings";
 
 /** Register all Rust-emitted event listeners. Returns cleanup function. */
 export async function setupEventListeners(): Promise<() => void> {
   const unlisteners = await Promise.all([
     listen("overlay:show", () => {
       setOverlayVisible(true);
+      // Re-focus the prompt input every time the overlay becomes visible
+      requestAnimationFrame(() => {
+        (document.querySelector("textarea") as HTMLTextAreaElement | null)?.focus();
+      });
     }),
 
     listen("overlay:hide", () => {
@@ -93,6 +97,10 @@ export async function setupEventListeners(): Promise<() => void> {
 
     listen("session:history_cleared", () => {
       setTurnCount(0);
+    }),
+
+    listen<{ shortcut: string; reason: string }>("hotkey:error", () => {
+      setHotkeyRegistered(false);
     }),
   ]);
 

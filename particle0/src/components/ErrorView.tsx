@@ -1,16 +1,22 @@
 /**
- * ErrorView — displays an error message with retry action.
+ * ErrorView — error message with retry and optional "Open Settings" link.
  * Shown inside the answer region when session state is "failed".
  */
-import { Component } from "solid-js";
+import { Component, Show } from "solid-js";
 import type { ErrorInfo } from "../lib/api-types";
+import { setSettingsOpen } from "../signals/overlay";
 
 interface ErrorViewProps {
   error: ErrorInfo;
   onRetry: () => void;
 }
 
+/** Error types that suggest opening Settings to fix. */
+const CONFIG_ERRORS = new Set(["auth", "config", "model", "model_missing"]);
+
 const ErrorView: Component<ErrorViewProps> = (props) => {
+  const isConfigError = () => CONFIG_ERRORS.has(props.error.error_type);
+
   return (
     <div class="flex items-start gap-3 px-4 py-3 mx-4 my-2 rounded-[--radius-inner] bg-[--color-error-bg] border-l-2 border-[--color-error]">
       {/* Error icon */}
@@ -31,14 +37,27 @@ const ErrorView: Component<ErrorViewProps> = (props) => {
           {props.error.message}
         </p>
 
-        {props.error.retryable && (
-          <button
-            class="mt-2 text-xs text-[--color-accent] hover:text-[--color-accent-hover] font-medium transition-colors"
-            onClick={props.onRetry}
-          >
-            Try again →
-          </button>
-        )}
+        <div class="flex items-center gap-3 mt-2">
+          {/* Retry — only for retryable errors */}
+          <Show when={props.error.retryable}>
+            <button
+              class="text-xs text-[--color-accent] hover:text-[--color-accent-hover] font-medium transition-colors"
+              onClick={props.onRetry}
+            >
+              Try again →
+            </button>
+          </Show>
+
+          {/* Open Settings — for auth/config/model errors */}
+          <Show when={isConfigError()}>
+            <button
+              class="text-xs text-[--color-text-muted] hover:text-[--color-text-primary] font-medium transition-colors"
+              onClick={() => setSettingsOpen(true)}
+            >
+              Open Settings
+            </button>
+          </Show>
+        </div>
       </div>
     </div>
   );

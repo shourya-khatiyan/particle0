@@ -1,6 +1,6 @@
 //! Window manager — show, hide, focus, and resize the overlay window.
 
-use tauri::{AppHandle, Manager, PhysicalPosition, PhysicalSize, WebviewWindow};
+use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, WebviewWindow};
 
 const OVERLAY_LABEL: &str = "main";
 
@@ -31,12 +31,14 @@ pub fn show_overlay(app: &AppHandle) {
 
     let _ = window.show();
     let _ = window.set_focus();
+    let _ = app.emit("overlay:show", serde_json::json!({}));
 }
 
 /// Hides the overlay window.
 pub fn hide_overlay(app: &AppHandle) {
     let Some(window) = get_overlay(app) else { return };
     let _ = window.hide();
+    let _ = app.emit("overlay:hide", serde_json::json!({}));
 }
 
 /// Toggles overlay: show if hidden, focus if unfocused, hide if focused.

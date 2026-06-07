@@ -201,6 +201,7 @@ particle0/                        ← workspace root
 | Phase 4 | ✅ Done | Streaming pipeline — SSE, events, cancel |
 | Phase 5 | ✅ Done | Session orchestration & conversation memory |
 | Phase 6 | ✅ Done | Settings panel & first-run experience |
+| Phase 7 | ✅ Done | Edge cases, error handling & polish |
 | Phase 7 | ⬜ Pending | Edge cases, error handling & polish |
 | Phase 8 | ⬜ Pending | Testing, building & packaging |
 
@@ -218,6 +219,16 @@ particle0/                        ← workspace root
 - Tauri CLI: installed via `cargo install tauri-cli` or `npm`
 
 ---
+
+## Phase 7 Notes (Edge Cases, Error Handling & Polish)
+
+- `tauri-plugin-clipboard-manager v2.3.2` added to Cargo.toml + capabilities (`clipboard-manager:allow-write-text/read-text`) + plugin registered in `lib.rs`; `copyToClipboard` in `format.ts` uses Tauri plugin with `navigator.clipboard` fallback for dev context
+- Hotkey failure: `shortcut.rs` now emits `hotkey:error` event when registration fails; `tauri-events.ts` listens and sets `setHotkeyRegistered(false)`; `StatusBar.tsx` shows `⚠ hotkey conflict` with yellow text when `hotkeyRegistered()` is false
+- Auto-focus: `overlay:show` listener in `tauri-events.ts` uses `requestAnimationFrame` to focus the textarea immediately when the overlay becomes visible
+- `window_manager.rs` now emits `overlay:show` and `overlay:hide` events from Rust when the window is shown/hidden via `show_overlay`/`hide_overlay` (including hotkey toggle) — keeps frontend `overlayVisible` signal in sync
+- `ErrorView.tsx` now shows "Open Settings" button for `auth`, `config`, `model`, `model_missing` error types — clicking opens the settings panel without clearing the error
+- `StatusBar.tsx` upgraded: tokens/s metric (token_count / elapsed_ms * 1000) shown after completion; hotkey warning dot; `animate-pulse` on checking dot
+- `@tauri-apps/plugin-clipboard-manager` npm package installed
 
 ## Phase 6 Notes (Settings Panel & First-Run)
 
