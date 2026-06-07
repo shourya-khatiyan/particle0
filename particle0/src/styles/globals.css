@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+/* Design tokens — dark theme as default */
+@theme {
+  --color-surface: oklch(0.15 0.01 260);
+  --color-surface-elevated: oklch(0.20 0.01 260);
+  --color-surface-hover: oklch(0.24 0.01 260);
+  --color-border: oklch(0.30 0.01 260);
+  --color-border-subtle: oklch(0.22 0.01 260);
+  --color-text-primary: oklch(0.95 0 0);
+  --color-text-secondary: oklch(0.65 0 0);
+  --color-text-muted: oklch(0.45 0 0);
+  --color-accent: oklch(0.70 0.15 250);
+  --color-accent-hover: oklch(0.75 0.15 250);
+  --color-error: oklch(0.65 0.20 25);
+  --color-error-bg: oklch(0.20 0.05 25);
+  --color-success: oklch(0.70 0.18 145);
+  --color-warning: oklch(0.75 0.15 85);
+
+  --radius-overlay: 14px;
+  --radius-inner: 8px;
+  --shadow-overlay: 0 8px 40px oklch(0 0 0 / 0.60), 0 2px 8px oklch(0 0 0 / 0.30);
+
+  --font-sans: "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Code", "Consolas", monospace;
+
+  --duration-fast: 120ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+}
+
+/* Light theme overrides */
+[data-theme="light"] {
+  --color-surface: oklch(0.98 0 0);
+  --color-surface-elevated: oklch(0.94 0 0);
+  --color-surface-hover: oklch(0.90 0 0);
+  --color-border: oklch(0.82 0 0);
+  --color-border-subtle: oklch(0.90 0 0);
+  --color-text-primary: oklch(0.15 0 0);
+  --color-text-secondary: oklch(0.40 0 0);
+  --color-text-muted: oklch(0.60 0 0);
+  --color-accent: oklch(0.50 0.18 250);
+  --color-accent-hover: oklch(0.45 0.18 250);
+  --shadow-overlay: 0 8px 40px oklch(0 0 0 / 0.18), 0 2px 8px oklch(0 0 0 / 0.10);
+}
+
+/* Base reset */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+/* Allow text selection inside the answer region */
+.selectable {
+  user-select: text;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}

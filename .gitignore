@@ -1,0 +1,19 @@
+# Secrets — never commit API keys or local env files
+nvidia-api-key.txt
+.env
+.env.*
+!.env.example
+
+# Installers / one-off downloads
+rustup-init.exe
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor local settings (keep shared recommendations in .vscode/)
+.idea/
+
+# Optional: uncomment to keep AI session context local-only
+# .cursor/

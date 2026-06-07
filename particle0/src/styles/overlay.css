@@ -1,0 +1,91 @@
+/* Overlay-specific animations and transitions */
+
+/* Streaming cursor blink */
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.streaming-cursor::after {
+  content: "▋";
+  display: inline-block;
+  animation: cursor-blink 800ms ease infinite;
+  color: var(--color-accent);
+  margin-left: 1px;
+  font-size: 0.85em;
+  vertical-align: baseline;
+}
+
+/* Answer region height transition */
+.answer-region {
+  transition: max-height var(--duration-normal) ease-out,
+              opacity var(--duration-fast) ease-out;
+}
+
+/* Status dot pulse for connecting state */
+@keyframes pulse-ring {
+  0% { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+.status-dot-connecting::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--color-warning);
+  animation: pulse-ring 1.2s ease-out infinite;
+}
+
+/* Code block styles within the answer */
+.answer-content pre {
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-inner);
+  padding: 12px 16px;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  line-height: 1.6;
+  margin: 8px 0;
+}
+
+.answer-content code {
+  font-family: var(--font-mono);
+  font-size: 0.82em;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.answer-content pre code {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+}
+
+.answer-content p {
+  margin-bottom: 8px;
+  line-height: 1.65;
+}
+
+.answer-content p:last-child {
+  margin-bottom: 0;
+}
+
+.answer-content ul, .answer-content ol {
+  padding-left: 20px;
+  margin: 6px 0;
+}
+
+.answer-content li {
+  margin-bottom: 4px;
+  line-height: 1.55;
+}
+
+.answer-content h1, .answer-content h2, .answer-content h3 {
+  font-weight: 600;
+  margin: 10px 0 6px;
+}
