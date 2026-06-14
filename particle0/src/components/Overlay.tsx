@@ -2,6 +2,10 @@
  * Overlay — root floating card component.
  * All UI regions: header, input, answer, footer, status bar.
  * Keyboard: Enter=submit, Escape=cancel/dismiss, Ctrl+L=clear.
+ *
+ * Window auto-sizing: a ResizeObserver on the root content div calls
+ * resizeOverlay() whenever the content height changes so the Tauri window
+ * always fits exactly what is displayed.
  */
 import { Component, Show, createEffect, onMount, onCleanup } from "solid-js";
 import PromptInput from "./PromptInput";
@@ -25,10 +29,13 @@ import {
   setTurnCount,
 } from "../signals/session";
 import { settingsOpen, setSettingsOpen, setHeightState } from "../signals/overlay";
-import { submitPrompt, cancelPrompt, hideOverlay, setMultiTurn, clearHistory } from "../lib/tauri-commands";
+import { submitPrompt, cancelPrompt, hideOverlay, setMultiTurn, clearHistory, resizeOverlay } from "../lib/tauri-commands";
 import { copyToClipboard } from "../lib/format";
 
 const Overlay: Component = () => {
+  let rootRef: HTMLDivElement | undefined;
+  let resizeObserver: ResizeObserver | undefined;
+
   // Sync overlay height state signal with session state
   createEffect(() => {
     const s = sessionState();
@@ -54,8 +61,27 @@ const Overlay: Component = () => {
     }
   };
 
-  onMount(() => window.addEventListener("keydown", handleGlobalKey));
-  onCleanup(() => window.removeEventListener("keydown", handleGlobalKey));
+  onMount(() => {
+    window.addEventListener("keydown", handleGlobalKey);
+
+    // Resize the Tauri window to match the content height whenever it changes.
+    // Uses scrollHeight so the window never clips any rendered content.
+    if (rootRef) {
+      resizeObserver = new ResizeObserver(() => {
+        if (rootRef) {
+          resizeOverlay(rootRef.scrollHeight).catch(() => {});
+        }
+      });
+      resizeObserver.observe(rootRef);
+      // Fire once immediately so the window is sized correctly on first render.
+      resizeOverlay(rootRef.scrollHeight).catch(() => {});
+    }
+  });
+
+  onCleanup(() => {
+    window.removeEventListener("keydown", handleGlobalKey);
+    resizeObserver?.disconnect();
+  });
 
   const handleSubmit = async (text: string) => {
     // Immediately transition to connecting so the UI responds before Rust replies
@@ -127,8 +153,9 @@ const Overlay: Component = () => {
 
   return (
     <div
-      class="flex flex-col w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[var(--radius-overlay)] overflow-hidden select-none"
-      style={{ "box-shadow": "0 8px 32px rgba(0,0,0,0.7)" }}
+      ref={rootRef}
+      class="flex flex-col w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[var(--radius-overlay)] select-none"
+      style={{ "box-shadow": "var(--shadow-overlay)" }}
     >
       {/* ── Header strip ─────────────────────────────────────── */}
       <div class="flex items-center gap-2 px-4 pt-3 pb-2 flex-shrink-0">
@@ -169,7 +196,7 @@ const Overlay: Component = () => {
         {/* Settings button */}
         <button
           onClick={() => setSettingsOpen(!settingsOpen())}
-          class="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors p-1 rounded-md hover:bg-[var(--color-surface-elevated)]"
+          class="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors p-1 rounded-md hover:bg-[var(--color-surface-hover)]"
           aria-label="Open settings"
         >
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -223,9 +250,9 @@ const Overlay: Component = () => {
             <Show when={sessionState() === "connecting"}>
               <div class="px-4 py-3 flex items-center gap-2">
                 <span class="flex gap-1">
-                  <span class="w-1.5 h-1.5 rounded-full bg-[var(--color-accent)] animate-pulse" style={{ "animation-delay": "0ms" }} />
-                  <span class="w-1.5 h-1.5 rounded-full bg-[var(--color-accent)] animate-pulse" style={{ "animation-delay": "150ms" }} />
-                  <span class="w-1.5 h-1.5 rounded-full bg-[var(--color-accent)] animate-pulse" style={{ "animation-delay": "300ms" }} />
+                  <span class="w-1.5 h-1.5 rounded-full bg-[var(--color-accent)] connecting-dot-1" />
+                  <span class="w-1.5 h-1.5 rounded-full bg-[var(--color-accent)] connecting-dot-2" />
+                  <span class="w-1.5 h-1.5 rounded-full bg-[var(--color-accent)] connecting-dot-3" />
                 </span>
                 <span class="text-xs text-[var(--color-text-muted)]">Connecting…</span>
               </div>
@@ -286,10 +313,10 @@ const FooterBtn: Component<{
   <button
     onClick={props.onClick}
     class={`
-      text-[10px] font-medium px-2 py-1 rounded transition-colors duration-[var(--duration-fast)]
+      text-xs font-medium px-2 py-1.5 rounded transition-colors duration-[var(--duration-fast)]
       ${props.danger
         ? "text-[var(--color-error)] hover:bg-[var(--color-error-bg)]"
-        : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-elevated)]"
+        : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-hover)]"
       }
     `}
   >

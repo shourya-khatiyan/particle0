@@ -18,8 +18,8 @@
   --color-border: rgba(255, 255, 255, 0.12);
   --color-border-subtle: rgba(255, 255, 255, 0.06);
   --color-text-primary: #e4e4e7;
-  --color-text-secondary: #8a8a93;
-  --color-text-muted: #4a4a52;
+  --color-text-secondary: #9a9aa8;
+  --color-text-muted: #6b6b78;
   --color-accent: #e4e4e7;
   --color-accent-hover: #ffffff;
   --color-error: #e55555;
@@ -40,7 +40,8 @@ html, body, #root {
   width: 100%;
   height: 100%;
   background: transparent;
-  overflow: hidden;
+  /* clip prevents webview scrollbars without creating a new stacking context */
+  overflow: clip;
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   user-select: none;
@@ -55,14 +56,15 @@ html, body, #root {
   50% { opacity: 0.4; }
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+/* Connecting indicator dots — left-to-right wave with stagger baked in */
+@keyframes connecting-dot {
+  0%, 60%, 100% { opacity: 0.2; transform: scale(0.85); }
+  30% { opacity: 1; transform: scale(1); }
 }
 
-.animate-pulse {
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
+.connecting-dot-1 { animation: connecting-dot 1.2s ease-in-out infinite; animation-delay: 0ms; }
+.connecting-dot-2 { animation: connecting-dot 1.2s ease-in-out infinite; animation-delay: 200ms; }
+.connecting-dot-3 { animation: connecting-dot 1.2s ease-in-out infinite; animation-delay: 400ms; }
 
 ::-webkit-scrollbar {
   width: 4px;

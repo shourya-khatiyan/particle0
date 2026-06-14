@@ -166,13 +166,13 @@ const SettingsPanel: Component = () => {
   // ── render ───────────────────────────────────────────────────────────────
 
   return (
-    <div class="flex flex-col" style={{ "max-height": "calc(100vh - 60px)" }}>
+    <div class="flex flex-col">
       {/* Header */}
       <div class="flex items-center justify-between px-5 pt-3 pb-2 flex-shrink-0">
         <h2 class="text-sm font-semibold text-[var(--color-text-primary)]">Settings</h2>
         <button
           onClick={() => setSettingsOpen(false)}
-          class="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors p-1 rounded-md hover:bg-[var(--color-surface-elevated)]"
+          class="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors p-1 rounded-md hover:bg-[var(--color-surface-hover)]"
           aria-label="Close settings"
         >
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -285,7 +285,7 @@ const SettingsPanel: Component = () => {
                 </div>
                 <button
                   onClick={hotkeyListening() ? stopHotkeyCapture : startHotkeyCapture}
-                  class="px-2.5 py-1.5 rounded-md text-xs bg-[var(--color-surface-elevated)] border border-[var(--color-border-subtle)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+                  class="px-2.5 py-1.5 rounded-md text-xs bg-[var(--color-surface-elevated)] border border-[var(--color-border-subtle)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-hover)] transition-colors"
                 >
                   {hotkeyListening() ? "Cancel" : "Change"}
                 </button>
@@ -388,7 +388,7 @@ const SettingsPanel: Component = () => {
       <div class="flex gap-2 px-5 py-3 border-t border-[var(--color-border-subtle)] flex-shrink-0">
         <button
           onClick={handleReset}
-          class="px-3 py-1.5 rounded-md text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-elevated)] transition-colors"
+          class="px-3 py-1.5 rounded-md text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-hover)] transition-colors"
         >
           Reset
         </button>
