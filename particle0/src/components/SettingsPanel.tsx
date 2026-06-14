@@ -166,7 +166,7 @@ const SettingsPanel: Component = () => {
   // ── render ───────────────────────────────────────────────────────────────
 
   return (
-    <div class="flex flex-col">
+    <div class="flex flex-col max-h-[820px]">
       {/* Header */}
       <div class="flex items-center justify-between px-5 pt-3 pb-2 flex-shrink-0">
         <h2 class="text-sm font-semibold text-[var(--color-text-primary)]">Settings</h2>
