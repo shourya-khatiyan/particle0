@@ -74,24 +74,26 @@ const PromptInput: Component<PromptInputProps> = (props) => {
   };
 
   return (
-    <div class="flex items-end gap-2 px-4 py-2.5 flex-shrink-0">
-      <textarea
-        ref={textareaRef}
-        value={promptText()}
-        onInput={(e) => setPromptText(e.currentTarget.value)}
-        onKeyDown={handleKeyDown}
-        placeholder="Ask anything…"
-        rows={1}
-        disabled={isActive()}
-        class="
-          flex-1 resize-none bg-transparent outline-none border-none
-          text-sm text-[--color-text-primary] placeholder:text-[--color-text-muted]
-          leading-6 font-normal
-          disabled:opacity-50
-          selectable
-        "
-        style={{ height: "24px", "max-height": "72px", overflow: "hidden auto" }}
-      />
+    <div class="flex items-end gap-2 px-3 py-2.5 flex-shrink-0">
+      <div class="flex-1 rounded-lg bg-[var(--color-surface-elevated)] border border-[var(--color-border)] px-3 py-2">
+        <textarea
+          ref={textareaRef}
+          value={promptText()}
+          onInput={(e) => setPromptText(e.currentTarget.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Ask anything…"
+          rows={1}
+          disabled={isActive()}
+          class="
+            w-full resize-none bg-transparent outline-none border-none
+            text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)]/60
+            leading-6 font-normal
+            disabled:opacity-50
+            selectable
+          "
+          style={{ height: "24px", "max-height": "72px", overflow: "hidden auto" }}
+        />
+      </div>
 
       {/* Submit / stop button */}
       <button
@@ -99,12 +101,12 @@ const PromptInput: Component<PromptInputProps> = (props) => {
         disabled={!isActive() && !promptText().trim()}
         aria-label={isActive() ? "Stop" : "Submit prompt"}
         class={`
-          flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md
-          transition-all duration-[--duration-fast]
+          flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-md
+          transition-all duration-[var(--duration-fast)]
           disabled:opacity-25 disabled:cursor-not-allowed
           ${isActive()
-            ? "bg-[--color-error]/80 hover:bg-[--color-error] text-white"
-            : "bg-[--color-accent] hover:bg-[--color-accent-hover] text-white"
+            ? "bg-[var(--color-error)]/80 hover:bg-[var(--color-error)] text-white"
+            : "bg-[var(--color-text-primary)] hover:bg-[var(--color-accent-hover)] text-[var(--color-surface)]"
           }
         `}
       >

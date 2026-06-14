@@ -59,7 +59,7 @@ pub fn toggle_overlay(app: &AppHandle) {
 /// Resizes the overlay window height to `height` logical pixels.
 pub fn resize_overlay(app: &AppHandle, height: f64) {
     let Some(window) = get_overlay(app) else { return };
-    let clamped = height.clamp(60.0, 720.0) as u32;
+    let clamped = height.clamp(60.0, 800.0) as u32;
 
     if let Ok(scale) = window.scale_factor() {
         let physical_height = (clamped as f64 * scale) as u32;

@@ -28,7 +28,7 @@ todos:
     status: completed
   - id: phase-8
     content: "Phase 8: Testing, Building & Packaging — Write Rust unit tests for critical paths, production build, NSIS Windows installer"
-    status: pending
+    status: completed
 isProject: false
 ---
 

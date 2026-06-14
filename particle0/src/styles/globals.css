@@ -1,47 +1,32 @@
 @import "tailwindcss";
 
-/* Design tokens — dark theme as default */
 @theme {
-  --color-surface: oklch(0.15 0.01 260);
-  --color-surface-elevated: oklch(0.20 0.01 260);
-  --color-surface-hover: oklch(0.24 0.01 260);
-  --color-border: oklch(0.30 0.01 260);
-  --color-border-subtle: oklch(0.22 0.01 260);
-  --color-text-primary: oklch(0.95 0 0);
-  --color-text-secondary: oklch(0.65 0 0);
-  --color-text-muted: oklch(0.45 0 0);
-  --color-accent: oklch(0.70 0.15 250);
-  --color-accent-hover: oklch(0.75 0.15 250);
-  --color-error: oklch(0.65 0.20 25);
-  --color-error-bg: oklch(0.20 0.05 25);
-  --color-success: oklch(0.70 0.18 145);
-  --color-warning: oklch(0.75 0.15 85);
-
   --radius-overlay: 14px;
   --radius-inner: 8px;
-  --shadow-overlay: 0 8px 40px oklch(0 0 0 / 0.60), 0 2px 8px oklch(0 0 0 / 0.30);
-
   --font-sans: "Inter", "Segoe UI", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", "Cascadia Code", "Consolas", monospace;
-
   --duration-fast: 120ms;
   --duration-normal: 200ms;
   --duration-slow: 300ms;
 }
 
-/* Light theme overrides */
-[data-theme="light"] {
-  --color-surface: oklch(0.98 0 0);
-  --color-surface-elevated: oklch(0.94 0 0);
-  --color-surface-hover: oklch(0.90 0 0);
-  --color-border: oklch(0.82 0 0);
-  --color-border-subtle: oklch(0.90 0 0);
-  --color-text-primary: oklch(0.15 0 0);
-  --color-text-secondary: oklch(0.40 0 0);
-  --color-text-muted: oklch(0.60 0 0);
-  --color-accent: oklch(0.50 0.18 250);
-  --color-accent-hover: oklch(0.45 0.18 250);
-  --shadow-overlay: 0 8px 40px oklch(0 0 0 / 0.18), 0 2px 8px oklch(0 0 0 / 0.10);
+/* Monochrome dark theme — z-black palette */
+:root, [data-theme="dark"] {
+  --color-surface: #0c0c0e;
+  --color-surface-elevated: #161618;
+  --color-surface-hover: #1e1e21;
+  --color-border: rgba(255, 255, 255, 0.12);
+  --color-border-subtle: rgba(255, 255, 255, 0.06);
+  --color-text-primary: #e4e4e7;
+  --color-text-secondary: #8a8a93;
+  --color-text-muted: #4a4a52;
+  --color-accent: #e4e4e7;
+  --color-accent-hover: #ffffff;
+  --color-error: #e55555;
+  --color-error-bg: rgba(229, 85, 85, 0.08);
+  --color-success: #2db87f;
+  --color-warning: #d4a12a;
+  --shadow-overlay: 0 0 0 1px rgba(255, 255, 255, 0.12), 0 8px 32px rgba(0, 0, 0, 0.7);
 }
 
 /* Base reset */
@@ -61,18 +46,15 @@ html, body, #root {
   user-select: none;
 }
 
-/* Allow text selection inside the answer region */
 .selectable {
   user-select: text;
 }
 
-/* Pulse animation for streaming/connecting status indicator */
 @keyframes status-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
 }
 
-/* Tailwind v4 custom animation */
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
@@ -82,7 +64,6 @@ html, body, #root {
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-/* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 4px;
   height: 4px;
@@ -91,9 +72,9 @@ html, body, #root {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--color-border);
+  background: rgba(255, 255, 255, 0.15);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-text-muted);
+  background: rgba(255, 255, 255, 0.25);
 }

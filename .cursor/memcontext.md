@@ -193,17 +193,13 @@ particle0/                        ← workspace root
 |---|---|---|
 | Phase 0 | ✅ Complete | Project bootstrap: Tauri 2 + SolidJS + Tailwind v4 |
 | Phase 1 | ✅ Complete | Desktop shell & window management |
-| Phase 2 | ✅ Complete | UI shell & theming |
-| Phase 3 | 🔄 Next | NIM integration & settings persistence |
-| Phase 4 | ⬜ Pending | Streaming pipeline |
-| Phase 5 | ⬜ Pending | Session orchestration & conversation memory |
+| Phase 2 | ✅ Done | UI shell & theming |
 | Phase 3 | ✅ Done | NIM integration & settings persistence |
 | Phase 4 | ✅ Done | Streaming pipeline — SSE, events, cancel |
 | Phase 5 | ✅ Done | Session orchestration & conversation memory |
 | Phase 6 | ✅ Done | Settings panel & first-run experience |
 | Phase 7 | ✅ Done | Edge cases, error handling & polish |
-| Phase 7 | ⬜ Pending | Edge cases, error handling & polish |
-| Phase 8 | ⬜ Pending | Testing, building & packaging |
+| Phase 8 | ✅ Done | Testing, building & packaging |
 
 ---
 
@@ -219,6 +215,18 @@ particle0/                        ← workspace root
 - Tauri CLI: installed via `cargo install tauri-cli` or `npm`
 
 ---
+
+## Phase 8 Notes (Testing, Building & Packaging)
+
+- 40 Rust unit tests across 4 modules, all passing:
+  - `errors.rs` (10 tests): display strings for all variants, `UserFacingError` retryable/error_type mapping
+  - `stream_parser.rs` (14 tests): single token, finish reason, empty/null content, [DONE], SSE comments, malformed JSON, multi-chunk stream, split-across-byte-boundaries, network error passthrough
+  - `settings.rs` (11 tests): defaults, serde roundtrip, validate valid/empty/invalid URL, temperature boundaries, `is_configured` with all combos
+  - `nim_client.rs` (5 tests): trailing-slash trim, field copying, `for_test` construction, `ModelsResponse` deserialize (populated + empty)
+- `PartialEq` derive added to `NimError` for test assertions
+- Production build: `npx tauri build` completed in ~6m24s; Vite frontend built (28 modules, 40KB JS, 20KB CSS)
+- NSIS installer: `particle0_0.1.0_x64-setup.exe` generated; `currentUser` install mode (no admin), Start Menu shortcut
+- `tauri.conf.json` bundle config already correct from Phase 0: `targets: ["nsis"]`, `identifier: "com.particle0.app"`, all icon paths present
 
 ## Phase 7 Notes (Edge Cases, Error Handling & Polish)
 

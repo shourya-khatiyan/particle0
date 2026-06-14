@@ -7,12 +7,12 @@
 }
 
 .streaming-cursor::after {
-  content: "▋";
+  content: "\25CB";
   display: inline-block;
   animation: cursor-blink 800ms ease infinite;
   color: var(--color-accent);
-  margin-left: 1px;
-  font-size: 0.85em;
+  margin-left: 2px;
+  font-size: 0.75em;
   vertical-align: baseline;
 }
 
@@ -40,21 +40,21 @@
 /* Code block styles within the answer */
 .answer-content pre {
   background: var(--color-surface-elevated);
-  border: 1px solid var(--color-border-subtle);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-inner);
-  padding: 12px 16px;
+  padding: 12px 14px;
   overflow-x: auto;
   font-family: var(--font-mono);
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   line-height: 1.6;
-  margin: 8px 0;
+  margin: 10px 0;
 }
 
 .answer-content code {
   font-family: var(--font-mono);
   font-size: 0.82em;
   background: var(--color-surface-elevated);
-  border: 1px solid var(--color-border-subtle);
+  border: 1px solid var(--color-border);
   border-radius: 4px;
   padding: 1px 5px;
 }
@@ -85,7 +85,18 @@
   line-height: 1.55;
 }
 
-.answer-content h1, .answer-content h2, .answer-content h3 {
+.answer-content strong {
   font-weight: 600;
-  margin: 10px 0 6px;
+  color: var(--color-text-primary);
+}
+
+.answer-content em {
+  color: var(--color-text-secondary);
+}
+
+/* Input focus ring */
+.input-focus-ring:focus {
+  border-color: var(--color-border);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.05);
+  outline: none;
 }

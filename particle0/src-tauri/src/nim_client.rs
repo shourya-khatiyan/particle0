@@ -49,7 +49,10 @@ impl NimClient {
         let http = Client::builder()
             .timeout(Duration::from_secs(settings.request_timeout_secs))
             .build()
-            .unwrap_or_default();
+            .unwrap_or_else(|e| {
+                log::warn!("Failed to build HTTP client with timeout: {e}, using default");
+                Client::default()
+            });
 
         NimClient {
             http,
@@ -64,7 +67,10 @@ impl NimClient {
         let http = Client::builder()
             .timeout(Duration::from_secs(15))
             .build()
-            .unwrap_or_default();
+            .unwrap_or_else(|e| {
+                log::warn!("Failed to build test HTTP client: {e}, using default");
+                Client::default()
+            });
 
         NimClient {
             http,
@@ -74,10 +80,10 @@ impl NimClient {
         }
     }
 
-    /// Checks NIM server readiness via GET /v1/health/ready.
+    /// Checks NIM server readiness via GET {base_url}/health/ready.
     /// Returns `HealthCheckError::NotFound` for 404 — caller treats that as non-fatal.
     pub async fn check_health(&self) -> Result<bool, HealthCheckError> {
-        let url = format!("{}/v1/health/ready", self.base_url);
+        let url = format!("{}/health/ready", self.base_url);
         let resp = self
             .http
             .get(&url)
@@ -93,9 +99,9 @@ impl NimClient {
         Ok(resp.status().is_success())
     }
 
-    /// Lists available models via GET /v1/models.
+    /// Lists available models via GET {base_url}/models.
     pub async fn list_models(&self) -> Result<Vec<ModelInfo>, NimError> {
-        let url = format!("{}/v1/models", self.base_url);
+        let url = format!("{}/models", self.base_url);
         let resp = self
             .http
             .get(&url)
@@ -129,7 +135,7 @@ impl NimClient {
     ) -> Result<impl futures::Stream<Item = Result<StreamChunk, NimError>>, NimError> {
         use serde_json::json;
 
-        let url = format!("{}/v1/chat/completions", self.base_url);
+        let url = format!("{}/chat/completions", self.base_url);
 
         let mut body = json!({
             "model": self.model,
@@ -163,5 +169,57 @@ impl NimClient {
         let byte_stream = resp.bytes_stream();
         let chunk_stream = crate::stream_parser::parse_sse_stream(byte_stream);
         Ok(chunk_stream)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_settings() -> AppSettings {
+        AppSettings {
+            nim_base_url: "https://integrate.api.nvidia.com/v1/".into(),
+            nim_api_key: "nvapi-test-key".into(),
+            nim_model: "meta/llama-3.1-8b-instruct".into(),
+            request_timeout_secs: 45,
+            ..AppSettings::default()
+        }
+    }
+
+    #[test]
+    fn client_from_settings_trims_trailing_slash() {
+        let client = NimClient::new(&test_settings());
+        assert_eq!(client.base_url, "https://integrate.api.nvidia.com/v1");
+    }
+
+    #[test]
+    fn client_copies_api_key_and_model() {
+        let client = NimClient::new(&test_settings());
+        assert_eq!(client.api_key, "nvapi-test-key");
+        assert_eq!(client.model, "meta/llama-3.1-8b-instruct");
+    }
+
+    #[test]
+    fn for_test_trims_trailing_slash() {
+        let client = NimClient::for_test("https://example.com/", "key");
+        assert_eq!(client.base_url, "https://example.com");
+        assert_eq!(client.api_key, "key");
+        assert!(client.model.is_empty());
+    }
+
+    #[test]
+    fn models_response_deserialize() {
+        let json = r#"{"data":[{"id":"model-a"},{"id":"model-b"}]}"#;
+        let resp: ModelsResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(resp.data.len(), 2);
+        assert_eq!(resp.data[0].id, "model-a");
+        assert_eq!(resp.data[1].id, "model-b");
+    }
+
+    #[test]
+    fn models_response_empty() {
+        let json = r#"{"data":[]}"#;
+        let resp: ModelsResponse = serde_json::from_str(json).unwrap();
+        assert!(resp.data.is_empty());
     }
 }

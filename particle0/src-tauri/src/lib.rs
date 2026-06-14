@@ -1,6 +1,3 @@
-// Hides the extra console window on Windows in release builds
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-
 mod commands;
 mod errors;
 mod nim_client;
@@ -26,7 +23,7 @@ pub fn run() {
         .manage(Mutex::new(AppState::default()))
         .setup(|app| {
             // Load settings from disk (or use defaults on first run)
-            let settings = AppSettings::load_or_default(app.handle()).unwrap_or_default();
+            let settings = AppSettings::load_or_default(app.handle());
 
             // Store settings in app state
             {
@@ -89,12 +86,14 @@ async fn validate_nim_backend(app: &tauri::AppHandle, settings: &AppSettings) {
         Ok(ok) => ok,
         Err(nim_client::HealthCheckError::NotFound) => true, // endpoint absent — continue
         Err(_) => {
+            update_backend_status(app, BackendStatus::Unreachable);
             emit_unavailable(app, "unreachable", "Cannot reach the NIM server.");
             return;
         }
     };
 
     if !health_ok {
+        update_backend_status(app, BackendStatus::Unreachable);
         emit_unavailable(app, "unreachable", "NIM health check failed.");
         return;
     }

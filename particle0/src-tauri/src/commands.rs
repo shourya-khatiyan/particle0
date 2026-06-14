@@ -235,6 +235,11 @@ pub async fn submit_prompt(
                     role: "assistant".into(),
                     content: accumulated.clone(),
                 });
+                // Prune history to stay within the limit
+                if s.conversation_history.len() > MAX_HISTORY_MESSAGES {
+                    let drain_count = s.conversation_history.len() - MAX_HISTORY_MESSAGES;
+                    s.conversation_history.drain(..drain_count);
+                }
             }
         }
     });
@@ -331,13 +336,13 @@ pub fn save_settings(
 pub fn load_settings(
     app: AppHandle,
     state: State<'_, Mutex<AppState>>,
-) -> Result<AppSettings, String> {
-    let settings = AppSettings::load_or_default(&app)?;
+) -> AppSettings {
+    let settings = AppSettings::load_or_default(&app);
     {
         let mut s = state.lock().unwrap();
         s.settings = settings.clone();
     }
-    Ok(settings)
+    settings
 }
 
 /// Show the overlay window.

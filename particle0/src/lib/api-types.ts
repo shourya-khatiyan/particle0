@@ -40,7 +40,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   nim_base_url: "https://integrate.api.nvidia.com/v1",
   nim_api_key: "",
   nim_model: "",
-  hotkey: "Alt+Space",
+  hotkey: "Ctrl+Space",
   theme: "dark",
   launch_on_startup: false,
   max_tokens: null,

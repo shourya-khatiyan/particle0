@@ -127,18 +127,19 @@ const Overlay: Component = () => {
 
   return (
     <div
-      class="flex flex-col w-full bg-[--color-surface] rounded-[--radius-overlay] shadow-[--shadow-overlay] border border-[--color-border-subtle] overflow-hidden select-none"
+      class="flex flex-col w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[var(--radius-overlay)] overflow-hidden select-none"
+      style={{ "box-shadow": "0 8px 32px rgba(0,0,0,0.7)" }}
     >
       {/* ── Header strip ─────────────────────────────────────── */}
       <div class="flex items-center gap-2 px-4 pt-3 pb-2 flex-shrink-0">
         <div class="flex items-center gap-1.5">
           {/* Particle triangle icon */}
-          <div class="w-4 h-4 rounded-[3px] bg-[--color-accent] flex items-center justify-center flex-shrink-0">
-            <svg class="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 24 24">
+          <div class="w-4 h-4 rounded-[3px] bg-[var(--color-text-muted)] flex items-center justify-center flex-shrink-0">
+            <svg class="w-2.5 h-2.5 text-[var(--color-surface)]" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 3L3 20h18L12 3z" />
             </svg>
           </div>
-          <span class="text-[11px] font-semibold text-[--color-text-secondary] tracking-widest uppercase">
+          <span class="text-[10px] font-bold text-[var(--color-text-muted)] tracking-[0.15em] uppercase" style={{ "font-family": "var(--font-mono)" }}>
             particle0
           </span>
         </div>
@@ -151,10 +152,10 @@ const Overlay: Component = () => {
           title={multiTurnEnabled() ? "Multi-turn ON — click to disable" : "Single-turn — click to enable multi-turn"}
           class={`
             flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider
-            transition-all duration-[--duration-fast]
+            transition-all duration-[var(--duration-fast)]
             ${multiTurnEnabled()
-              ? "text-[--color-accent] bg-[--color-accent]/10 border border-[--color-accent]/30"
-              : "text-[--color-text-muted] hover:text-[--color-text-secondary]"
+              ? "text-[var(--color-text-primary)] bg-[var(--color-surface-hover)] border border-[var(--color-border)]"
+              : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
             }
           `}
           aria-label="Toggle multi-turn conversation"
@@ -168,7 +169,7 @@ const Overlay: Component = () => {
         {/* Settings button */}
         <button
           onClick={() => setSettingsOpen(!settingsOpen())}
-          class="text-[--color-text-muted] hover:text-[--color-text-primary] transition-colors p-1 rounded-md hover:bg-[--color-surface-elevated]"
+          class="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors p-1 rounded-md hover:bg-[var(--color-surface-elevated)]"
           aria-label="Open settings"
         >
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -181,13 +182,13 @@ const Overlay: Component = () => {
 
       {/* ── Settings panel ────────────────────────────────────── */}
       <Show when={settingsOpen()}>
-        <div class="h-px bg-[--color-border-subtle] mx-4" />
+        <div class="h-px bg-[var(--color-border-subtle)] mx-4" />
         <SettingsPanel />
       </Show>
 
       {/* ── Main overlay content ──────────────────────────────── */}
       <Show when={!settingsOpen()}>
-        <div class="h-px bg-[--color-border-subtle] mx-4 flex-shrink-0" />
+        <div class="h-px bg-[var(--color-border-subtle)] mx-4 flex-shrink-0" />
 
         {/* Prompt input */}
         <PromptInput
@@ -198,7 +199,7 @@ const Overlay: Component = () => {
 
         {/* Answer / error region */}
         <Show when={showAnswer()}>
-          <div class="h-px bg-[--color-border-subtle] mx-4 flex-shrink-0" />
+          <div class="h-px bg-[var(--color-border-subtle)] mx-4 flex-shrink-0" />
 
           <Show
             when={sessionState() !== "failed"}
@@ -222,11 +223,11 @@ const Overlay: Component = () => {
             <Show when={sessionState() === "connecting"}>
               <div class="px-4 py-3 flex items-center gap-2">
                 <span class="flex gap-1">
-                  <span class="w-1.5 h-1.5 rounded-full bg-[--color-accent] animate-pulse" style={{ "animation-delay": "0ms" }} />
-                  <span class="w-1.5 h-1.5 rounded-full bg-[--color-accent] animate-pulse" style={{ "animation-delay": "150ms" }} />
-                  <span class="w-1.5 h-1.5 rounded-full bg-[--color-accent] animate-pulse" style={{ "animation-delay": "300ms" }} />
+                  <span class="w-1.5 h-1.5 rounded-full bg-[var(--color-accent)] animate-pulse" style={{ "animation-delay": "0ms" }} />
+                  <span class="w-1.5 h-1.5 rounded-full bg-[var(--color-accent)] animate-pulse" style={{ "animation-delay": "150ms" }} />
+                  <span class="w-1.5 h-1.5 rounded-full bg-[var(--color-accent)] animate-pulse" style={{ "animation-delay": "300ms" }} />
                 </span>
-                <span class="text-xs text-[--color-text-muted]">Connecting…</span>
+                <span class="text-xs text-[var(--color-text-muted)]">Connecting…</span>
               </div>
             </Show>
             <Show when={sessionState() !== "connecting"}>
@@ -237,7 +238,7 @@ const Overlay: Component = () => {
 
         {/* ── Footer action row ─────────────────────────────── */}
         <Show when={showFooter()}>
-          <div class="h-px bg-[--color-border-subtle] mx-4 flex-shrink-0" />
+          <div class="h-px bg-[var(--color-border-subtle)] mx-4 flex-shrink-0" />
           <div class="flex items-center gap-0.5 px-3 py-1.5 flex-shrink-0">
 
             {/* Copy */}
@@ -259,7 +260,7 @@ const Overlay: Component = () => {
 
             {/* Multi-turn status indicator: shows turn count when history exists */}
             <Show when={multiTurnEnabled()}>
-              <span class="text-[9px] text-[--color-accent] font-medium mr-2 opacity-70">
+              <span class="text-[9px] text-[var(--color-accent)] font-medium mr-2 opacity-70">
                 {turnCount() > 0 ? `turn ${turnCount()}` : "multi-turn"}
               </span>
             </Show>
@@ -285,10 +286,10 @@ const FooterBtn: Component<{
   <button
     onClick={props.onClick}
     class={`
-      text-[10px] font-medium px-2 py-1 rounded transition-colors duration-[--duration-fast]
+      text-[10px] font-medium px-2 py-1 rounded transition-colors duration-[var(--duration-fast)]
       ${props.danger
-        ? "text-[--color-error] hover:bg-[--color-error-bg]"
-        : "text-[--color-text-muted] hover:text-[--color-text-primary] hover:bg-[--color-surface-elevated]"
+        ? "text-[var(--color-error)] hover:bg-[var(--color-error-bg)]"
+        : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-elevated)]"
       }
     `}
   >

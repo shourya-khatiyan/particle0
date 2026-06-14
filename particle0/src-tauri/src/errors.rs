@@ -3,7 +3,7 @@
 use serde::Serialize;
 
 /// All possible errors from the NIM client and app logic.
-#[derive(Debug, thiserror::Error, Serialize)]
+#[derive(Debug, PartialEq, thiserror::Error, Serialize)]
 pub enum NimError {
     #[error("NIM server unreachable: {0}")]
     NetworkError(String),
@@ -85,3 +85,76 @@ impl From<&NimError> for UserFacingError {
 }
 
 // NimError is returned from Tauri commands as a serialized error string via Result<T, String>.
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn network_error_display() {
+        let e = NimError::NetworkError("timeout".into());
+        assert_eq!(e.to_string(), "NIM server unreachable: timeout");
+    }
+
+    #[test]
+    fn auth_error_display() {
+        assert_eq!(
+            NimError::AuthError.to_string(),
+            "Authentication failed: check your API key"
+        );
+    }
+
+    #[test]
+    fn model_not_found_display() {
+        let e = NimError::ModelNotFound("gpt-x".into());
+        assert_eq!(e.to_string(), "Model 'gpt-x' not found on this endpoint");
+    }
+
+    #[test]
+    fn timeout_display() {
+        assert_eq!(
+            NimError::Timeout(30).to_string(),
+            "Request timed out after 30s"
+        );
+    }
+
+    #[test]
+    fn cancelled_display() {
+        assert_eq!(NimError::Cancelled.to_string(), "Request cancelled");
+    }
+
+    #[test]
+    fn user_facing_network_is_retryable() {
+        let uf = UserFacingError::from(&NimError::NetworkError("x".into()));
+        assert!(uf.retryable);
+        assert_eq!(uf.error_type, "network");
+    }
+
+    #[test]
+    fn user_facing_auth_not_retryable() {
+        let uf = UserFacingError::from(&NimError::AuthError);
+        assert!(!uf.retryable);
+        assert_eq!(uf.error_type, "auth");
+    }
+
+    #[test]
+    fn user_facing_config_not_retryable() {
+        let uf = UserFacingError::from(&NimError::ConfigError("bad".into()));
+        assert!(!uf.retryable);
+        assert_eq!(uf.error_type, "config");
+    }
+
+    #[test]
+    fn user_facing_server_retryable() {
+        let uf = UserFacingError::from(&NimError::ServerError("500".into()));
+        assert!(uf.retryable);
+        assert_eq!(uf.error_type, "server");
+    }
+
+    #[test]
+    fn user_facing_timeout_retryable() {
+        let uf = UserFacingError::from(&NimError::Timeout(30));
+        assert!(uf.retryable);
+        assert_eq!(uf.error_type, "timeout");
+    }
+}

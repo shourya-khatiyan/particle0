@@ -18,10 +18,10 @@ const ErrorView: Component<ErrorViewProps> = (props) => {
   const isConfigError = () => CONFIG_ERRORS.has(props.error.error_type);
 
   return (
-    <div class="flex items-start gap-3 px-4 py-3 mx-4 my-2 rounded-[--radius-inner] bg-[--color-error-bg] border-l-2 border-[--color-error]">
+    <div class="flex items-start gap-3 px-4 py-3 mx-4 my-2 rounded-[var(--radius-inner)] bg-[var(--color-error-bg)] border-l-2 border-[var(--color-error)]">
       {/* Error icon */}
       <svg
-        class="w-4 h-4 text-[--color-error] flex-shrink-0 mt-0.5"
+        class="w-4 h-4 text-[var(--color-error)] flex-shrink-0 mt-0.5"
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"
@@ -33,7 +33,7 @@ const ErrorView: Component<ErrorViewProps> = (props) => {
       </svg>
 
       <div class="flex-1 min-w-0">
-        <p class="text-sm text-[--color-text-primary] leading-snug">
+        <p class="text-sm text-[var(--color-text-primary)] leading-snug">
           {props.error.message}
         </p>
 
@@ -41,7 +41,7 @@ const ErrorView: Component<ErrorViewProps> = (props) => {
           {/* Retry — only for retryable errors */}
           <Show when={props.error.retryable}>
             <button
-              class="text-xs text-[--color-accent] hover:text-[--color-accent-hover] font-medium transition-colors"
+              class="text-xs text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] font-medium transition-colors"
               onClick={props.onRetry}
             >
               Try again →
@@ -51,7 +51,7 @@ const ErrorView: Component<ErrorViewProps> = (props) => {
           {/* Open Settings — for auth/config/model errors */}
           <Show when={isConfigError()}>
             <button
-              class="text-xs text-[--color-text-muted] hover:text-[--color-text-primary] font-medium transition-colors"
+              class="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] font-medium transition-colors"
               onClick={() => setSettingsOpen(true)}
             >
               Open Settings
