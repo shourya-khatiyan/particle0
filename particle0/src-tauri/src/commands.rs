@@ -6,10 +6,32 @@ use uuid::Uuid;
 
 use crate::nim_client::NimClient;
 use crate::settings::AppSettings;
-use crate::state::{AppState, ChatMessage};
+use crate::state::{AppState, BackendStatus, ChatMessage};
 use crate::window_manager;
 use crate::shortcut;
 use futures::StreamExt;
+use serde::Serialize;
+
+/// Maximum number of messages kept in conversation history (user+assistant pairs = MAX/2 turns).
+const MAX_HISTORY_MESSAGES: usize = 40;
+
+/// System prompt prepended to every API request.
+/// Follows the 4-block pattern: Role → Objective → Constraints → Format.
+const SYSTEM_PROMPT: &str = "\
+You are a clear-thinking assistant who explains things well.\n\
+\n\
+Objective: Give the user a genuinely useful answer — accurate, well-structured, \
+and at the right depth for the question.\n\
+\n\
+Constraints:\n\
+- Lead with the direct answer, then add context when it adds value.\n\
+- Use plain language. Define technical terms on first use.\n\
+- Match depth to the question: brief for simple, thorough for complex.\n\
+- If a question is ambiguous, answer the most likely reading and note the ambiguity.\n\
+\n\
+Format:\n\
+- Use structure (headings, bullets, numbered lists) when it improves readability.\n\
+- Skip filler phrases and unnecessary qualifiers.";
 
 /// Submit a prompt for inference. Returns the request_id.
 #[tauri::command]
@@ -25,24 +47,34 @@ pub async fn submit_prompt(
         return Err("Prompt cannot be empty".into());
     }
 
-    // Check no active request
+    // Check no active request; also check backend is configured
     {
         let s = state.lock().unwrap();
         if s.active_request_id.is_some() {
             return Err("A request is already in progress".into());
         }
+        if !s.settings.is_configured() {
+            return Err("NIM is not configured. Open Settings to add your API key and model.".into());
+        }
+        if matches!(s.backend_status, BackendStatus::ModelMissing) {
+            return Err("Selected model is not responding. Open Settings and pick a different model.".into());
+        }
     }
 
     let request_id = Uuid::new_v4().to_string();
 
-    // Build messages array
+    // Build messages array: system prompt + history (if multi-turn) + user message
     let messages: Vec<ChatMessage> = {
         let s = state.lock().unwrap();
-        let mut msgs = if multi_turn && s.multi_turn_enabled {
-            s.conversation_history.clone()
-        } else {
-            Vec::new()
-        };
+        let mut msgs = vec![ChatMessage {
+            role: "system".into(),
+            content: SYSTEM_PROMPT.into(),
+        }];
+        if multi_turn && s.multi_turn_enabled {
+            let history = &s.conversation_history;
+            let start = history.len().saturating_sub(MAX_HISTORY_MESSAGES - 1);
+            msgs.extend_from_slice(&history[start..]);
+        }
         msgs.push(ChatMessage {
             role: "user".into(),
             content: prompt.clone(),
@@ -75,6 +107,20 @@ pub async fn submit_prompt(
             .chat_completion_stream(messages.clone(), temperature, max_tokens)
             .await;
 
+        // Check if cancelled while waiting for HTTP response
+        {
+            let state = app_clone.state::<Mutex<AppState>>();
+            let s = state.lock().unwrap();
+            if s.cancel_requested {
+                drop(s);
+                let _ = app_clone.emit(
+                    "stream:cancelled",
+                    serde_json::json!({ "request_id": rid, "partial_text": "" }),
+                );
+                return;
+            }
+        }
+
         let mut stream = match stream_result {
             Ok(s) => s,
             Err(e) => {
@@ -89,7 +135,9 @@ pub async fn submit_prompt(
                 );
                 let state = app_clone.state::<Mutex<AppState>>();
                 let mut s = state.lock().unwrap();
-                s.active_request_id = None;
+                if s.active_request_id.as_deref() == Some(&rid) {
+                    s.active_request_id = None;
+                }
                 return;
             }
         };
@@ -153,43 +201,74 @@ pub async fn submit_prompt(
                     );
                     let state = app_clone.state::<Mutex<AppState>>();
                     let mut s = state.lock().unwrap();
-                    s.active_request_id = None;
+                    if s.active_request_id.as_deref() == Some(&rid) {
+                        s.active_request_id = None;
+                    }
                     return;
                 }
             }
         }
 
-        // Final flush of remaining buffer
-        if !batch_buf.is_empty() {
+        let elapsed_ms = start.elapsed().as_millis() as u64;
+
+        // Determine if the user cancelled
+        let was_cancelled = {
+            let state = app_clone.state::<Mutex<AppState>>();
+            let s = state.lock().unwrap();
+            s.cancel_requested
+        };
+
+        if was_cancelled {
+            // Flush remaining buffer before signalling cancellation
+            if !batch_buf.is_empty() {
+                let _ = app_clone.emit(
+                    "stream:chunk",
+                    serde_json::json!({
+                        "request_id": rid,
+                        "token": batch_buf,
+                        "accumulated": accumulated,
+                    }),
+                );
+            }
             let _ = app_clone.emit(
-                "stream:chunk",
+                "stream:cancelled",
                 serde_json::json!({
                     "request_id": rid,
-                    "token": batch_buf,
-                    "accumulated": accumulated,
+                    "partial_text": accumulated,
+                }),
+            );
+        } else {
+            // Final flush of remaining buffer
+            if !batch_buf.is_empty() {
+                let _ = app_clone.emit(
+                    "stream:chunk",
+                    serde_json::json!({
+                        "request_id": rid,
+                        "token": batch_buf,
+                        "accumulated": accumulated,
+                    }),
+                );
+            }
+            let _ = app_clone.emit(
+                "stream:end",
+                serde_json::json!({
+                    "request_id": rid,
+                    "full_text": accumulated,
+                    "elapsed_ms": elapsed_ms,
+                    "token_count": token_count,
                 }),
             );
         }
 
-        let elapsed_ms = start.elapsed().as_millis() as u64;
-
-        // Emit stream:end
-        let _ = app_clone.emit(
-            "stream:end",
-            serde_json::json!({
-                "request_id": rid,
-                "full_text": accumulated,
-                "elapsed_ms": elapsed_ms,
-                "token_count": token_count,
-            }),
-        );
-
-        // Update conversation history for multi-turn
+        // Update conversation history for multi-turn (only on clean completion)
         {
             let state = app_clone.state::<Mutex<AppState>>();
             let mut s = state.lock().unwrap();
-            s.active_request_id = None;
-            if s.multi_turn_enabled {
+            if s.active_request_id.as_deref() == Some(&rid) {
+                s.active_request_id = None;
+                s.cancel_requested = false;
+            }
+            if !was_cancelled && s.multi_turn_enabled {
                 s.conversation_history.push(ChatMessage {
                     role: "user".into(),
                     content: prompt.clone(),
@@ -198,6 +277,11 @@ pub async fn submit_prompt(
                     role: "assistant".into(),
                     content: accumulated.clone(),
                 });
+                // Prune history to stay within the limit
+                if s.conversation_history.len() > MAX_HISTORY_MESSAGES {
+                    let drain_count = s.conversation_history.len() - MAX_HISTORY_MESSAGES;
+                    s.conversation_history.drain(..drain_count);
+                }
             }
         }
     });
@@ -206,31 +290,59 @@ pub async fn submit_prompt(
 }
 
 /// Abort the currently active stream.
+/// Also clears active_request_id so a new request can proceed immediately.
 #[tauri::command]
 pub fn cancel_prompt(state: State<'_, Mutex<AppState>>) {
     let mut s = state.lock().unwrap();
     s.cancel_requested = true;
+    s.active_request_id = None;
 }
 
-/// Test NIM connection with provided credentials.
+/// Typed response for test_connection.
+#[derive(Serialize)]
+pub struct ConnectionTestResult {
+    pub success: bool,
+    pub models: Vec<String>,
+    pub error: Option<String>,
+}
+
+/// Tests NIM connection with the provided credentials.
+/// Returns available model IDs on success.
 #[tauri::command]
 pub async fn test_connection(
     base_url: String,
     api_key: String,
-) -> Result<serde_json::Value, String> {
+) -> Result<ConnectionTestResult, String> {
     let client = NimClient::for_test(&base_url, &api_key);
 
-    let models = client.list_models().await.map_err(|e| e.to_string())?;
-    let model_ids: Vec<String> = models.into_iter().map(|m| m.id).collect();
-
-    Ok(serde_json::json!({
-        "success": true,
-        "models": model_ids,
-        "error": null,
-    }))
+    match client.list_models().await {
+        Ok(models) => Ok(ConnectionTestResult {
+            success: true,
+            models: models.into_iter().map(|m| m.id).collect(),
+            error: None,
+        }),
+        Err(e) => Ok(ConnectionTestResult {
+            success: false,
+            models: vec![],
+            error: Some(e.to_string()),
+        }),
+    }
 }
 
-/// Save settings to disk.
+/// Returns the current backend status string for the frontend status bar.
+#[tauri::command]
+pub fn get_backend_status(state: State<'_, Mutex<AppState>>) -> String {
+    let s = state.lock().unwrap();
+    match s.backend_status {
+        BackendStatus::Ready => "ready".into(),
+        BackendStatus::Unreachable => "unreachable".into(),
+        BackendStatus::ModelMissing => "model_missing".into(),
+        BackendStatus::NotConfigured => "not_configured".into(),
+        BackendStatus::Checking => "checking".into(),
+    }
+}
+
+/// Saves settings to disk and re-triggers NIM backend validation.
 #[tauri::command]
 pub fn save_settings(
     app: AppHandle,
@@ -239,23 +351,42 @@ pub fn save_settings(
 ) -> Result<(), String> {
     settings.save(&app)?;
 
-    let mut s = state.lock().unwrap();
-    s.settings = settings.clone();
+    {
+        let mut s = state.lock().unwrap();
+        s.settings = settings.clone();
+        s.backend_status = if settings.is_configured() {
+            BackendStatus::Checking
+        } else {
+            BackendStatus::NotConfigured
+        };
+    }
 
     let _ = app.emit("settings:updated", serde_json::json!({ "settings": settings }));
+
+    // Re-run NIM validation in background if configured
+    if settings.is_configured() {
+        let app_clone = app.clone();
+        let s = settings.clone();
+        tauri::async_runtime::spawn(async move {
+            crate::validate_nim_backend(&app_clone, &s).await;
+        });
+    }
+
     Ok(())
 }
 
-/// Load settings from disk.
+/// Loads settings from disk and returns them.
 #[tauri::command]
 pub fn load_settings(
     app: AppHandle,
     state: State<'_, Mutex<AppState>>,
-) -> Result<AppSettings, String> {
-    let settings = AppSettings::load_or_default(&app)?;
-    let mut s = state.lock().unwrap();
-    s.settings = settings.clone();
-    Ok(settings)
+) -> AppSettings {
+    let settings = AppSettings::load_or_default(&app);
+    {
+        let mut s = state.lock().unwrap();
+        s.settings = settings.clone();
+    }
+    settings
 }
 
 /// Show the overlay window.
@@ -277,11 +408,11 @@ pub fn toggle_overlay(app: AppHandle) {
 }
 
 /// Resize overlay to a new logical pixel height.
+/// `dpr` is the webview's devicePixelRatio, used for correct CSS-to-physical conversion.
 #[tauri::command]
-pub fn resize_overlay(app: AppHandle, height: f64) {
-    window_manager::resize_overlay(&app, height);
+pub fn resize_overlay(app: AppHandle, height: f64, dpr: f64) {
+    window_manager::resize_overlay(&app, height, dpr);
 }
-
 /// Change the global hotkey at runtime.
 #[tauri::command]
 pub fn update_hotkey(
@@ -303,6 +434,7 @@ pub fn update_hotkey(
 }
 
 /// Enable or disable multi-turn conversation memory.
+/// Disabling clears history automatically.
 #[tauri::command]
 pub fn set_multi_turn(state: State<'_, Mutex<AppState>>, enabled: bool) {
     let mut s = state.lock().unwrap();
@@ -310,4 +442,75 @@ pub fn set_multi_turn(state: State<'_, Mutex<AppState>>, enabled: bool) {
     if !enabled {
         s.conversation_history.clear();
     }
+}
+
+/// Clears the conversation history without disabling multi-turn mode.
+/// Called when the user presses Clear while multi-turn is ON.
+#[tauri::command]
+pub fn clear_history(app: AppHandle, state: State<'_, Mutex<AppState>>) {
+    let mut s = state.lock().unwrap();
+    s.conversation_history.clear();
+    let _ = app.emit("session:history_cleared", serde_json::json!({}));
+}
+
+/// Seeds conversation history with an existing prompt+response pair.
+/// Called when switching from single to memory mode with a visible response.
+#[tauri::command]
+pub fn seed_history(state: State<'_, Mutex<AppState>>, prompt: String, response: String) {
+    let mut s = state.lock().unwrap();
+    if s.conversation_history.is_empty() && !prompt.is_empty() && !response.is_empty() {
+        s.conversation_history.push(ChatMessage {
+            role: "user".into(),
+            content: prompt,
+        });
+        s.conversation_history.push(ChatMessage {
+            role: "assistant".into(),
+            content: response,
+        });
+    }
+}
+
+/// Returns the number of completed turns in the current conversation history.
+/// A turn = one user + one assistant message pair.
+#[tauri::command]
+pub fn get_turn_count(state: State<'_, Mutex<AppState>>) -> usize {
+    let s = state.lock().unwrap();
+    s.conversation_history.len() / 2
+}
+
+/// Enables or disables Windows autostart via HKCU Run registry key.
+/// No-op on non-Windows platforms.
+#[tauri::command]
+pub fn toggle_autostart(enabled: bool) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        use winreg::enums::{HKEY_CURRENT_USER, KEY_WRITE};
+        use winreg::RegKey;
+
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+        let run_key = hkcu
+            .open_subkey_with_flags(
+                r"Software\Microsoft\Windows\CurrentVersion\Run",
+                KEY_WRITE,
+            )
+            .map_err(|e| format!("Cannot open Run registry key: {e}"))?;
+
+        if enabled {
+            let exe = std::env::current_exe()
+                .map_err(|e| format!("Cannot find exe path: {e}"))?
+                .to_string_lossy()
+                .to_string();
+            run_key
+                .set_value("particle0", &exe)
+                .map_err(|e| format!("Cannot write registry value: {e}"))?;
+        } else {
+            // Ignore errors on delete (key may not exist)
+            let _ = run_key.delete_value("particle0");
+        }
+    }
+
+    #[cfg(not(windows))]
+    let _ = enabled;
+
+    Ok(())
 }

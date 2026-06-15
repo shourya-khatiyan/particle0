@@ -27,13 +27,22 @@ export function truncate(text: string, maxLen: number): string {
 }
 
 /**
- * Copies text to the clipboard. Returns true on success.
+ * Copies text to the clipboard using Tauri's clipboard plugin.
+ * Falls back to the browser Clipboard API if the plugin call fails.
+ * Returns true on success.
  */
 export async function copyToClipboard(text: string): Promise<boolean> {
   try {
-    await navigator.clipboard.writeText(text);
+    const { writeText } = await import("@tauri-apps/plugin-clipboard-manager");
+    await writeText(text);
     return true;
   } catch {
-    return false;
+    // Fallback for dev/browser context
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      return false;
+    }
   }
 }

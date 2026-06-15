@@ -23,11 +23,8 @@ export const [requestMeta, setRequestMeta] = createSignal<RequestMeta | null>(nu
 /** Whether multi-turn conversation memory is enabled. */
 export const [multiTurnEnabled, setMultiTurnEnabled] = createSignal<boolean>(false);
 
-/** Derived: whether a request is currently in flight. */
-export function isRequestActive(): boolean {
-  const s = sessionState();
-  return s === "queued" || s === "connecting" || s === "streaming";
-}
+/** Number of completed multi-turn exchanges in the current conversation. */
+export const [turnCount, setTurnCount] = createSignal<number>(0);
 
 /** Resets session to idle, clearing output and error state. */
 export function resetSession(): void {

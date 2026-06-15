@@ -26,7 +26,6 @@ pub struct AppState {
     pub backend_status: BackendStatus,
     pub hotkey_registered: bool,
     pub active_request_id: Option<String>,
-    pub overlay_visible: bool,
     pub conversation_history: Vec<ChatMessage>,
     pub multi_turn_enabled: bool,
     /// Cancellation flag — set to true to abort the active stream.
@@ -40,7 +39,6 @@ impl Default for AppState {
             backend_status: BackendStatus::NotConfigured,
             hotkey_registered: false,
             active_request_id: None,
-            overlay_visible: false,
             conversation_history: Vec::new(),
             multi_turn_enabled: false,
             cancel_requested: false,

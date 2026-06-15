@@ -1,6 +1,6 @@
 //! Window manager — show, hide, focus, and resize the overlay window.
 
-use tauri::{AppHandle, Manager, PhysicalPosition, PhysicalSize, WebviewWindow};
+use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, WebviewWindow};
 
 const OVERLAY_LABEL: &str = "main";
 
@@ -31,12 +31,14 @@ pub fn show_overlay(app: &AppHandle) {
 
     let _ = window.show();
     let _ = window.set_focus();
+    let _ = app.emit("overlay:show", serde_json::json!({}));
 }
 
 /// Hides the overlay window.
 pub fn hide_overlay(app: &AppHandle) {
     let Some(window) = get_overlay(app) else { return };
     let _ = window.hide();
+    let _ = app.emit("overlay:hide", serde_json::json!({}));
 }
 
 /// Toggles overlay: show if hidden, focus if unfocused, hide if focused.
@@ -54,16 +56,17 @@ pub fn toggle_overlay(app: &AppHandle) {
     }
 }
 
-/// Resizes the overlay window height to `height` logical pixels.
-pub fn resize_overlay(app: &AppHandle, height: f64) {
+/// Resizes the overlay window height to `height` CSS pixels.
+/// `dpr` is the webview's actual devicePixelRatio — used instead of
+/// `window.scale_factor()` because WebView2 on Windows can report a
+/// different DPI than the OS window scale.
+pub fn resize_overlay(app: &AppHandle, height: f64, dpr: f64) {
     let Some(window) = get_overlay(app) else { return };
-    let clamped = height.clamp(60.0, 720.0) as u32;
-
-    if let Ok(scale) = window.scale_factor() {
-        let physical_height = (clamped as f64 * scale) as u32;
-        let current_size = window.inner_size().unwrap_or(PhysicalSize::new(780, 120));
-        let _ = window.set_size(PhysicalSize::new(current_size.width, physical_height));
-    }
+    let clamped = height.clamp(60.0, 900.0);
+    let safe_dpr = if dpr > 0.0 { dpr } else { 1.0 };
+    let physical_height = (clamped * safe_dpr).ceil() as u32;
+    let current_size = window.inner_size().unwrap_or(PhysicalSize::new(780, 120));
+    let _ = window.set_size(PhysicalSize::new(current_size.width, physical_height));
 }
 
 /// Finds the monitor that currently contains the mouse cursor.

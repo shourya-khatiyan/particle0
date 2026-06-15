@@ -1,85 +1,89 @@
 /**
- * StreamedAnswer — renders the streamed response with markdown-lite formatting.
- * Shows a blinking cursor while streaming. Auto-scrolls to bottom during streaming.
+ * StreamedAnswer — renders AI response with proper markdown on frosted glass.
+ * Uses markdown-it for full rendering with DOMPurify for safety.
+ * Includes code block headers with per-block copy buttons.
  */
-import { Component, Show, createEffect, onMount, onCleanup } from "solid-js";
+import { Component, Show, createMemo, onMount, onCleanup } from "solid-js";
 import { sessionState, streamedText } from "../signals/session";
-import "../styles/overlay.css";
+import MarkdownIt from "markdown-it";
+import DOMPurify from "dompurify";
+import { copyToClipboard } from "../lib/format";
 
-/** Minimal markdown → HTML conversion. Safe subset only. */
-function renderMarkdown(text: string): string {
-  let html = text
-    // Escape HTML first
+const md = new MarkdownIt({
+  html: false,
+  linkify: true,
+  typographer: true,
+  breaks: false,
+});
+
+md.renderer.rules.fence = (tokens, idx) => {
+  const token = tokens[idx];
+  const lang = token.info.trim() || "text";
+  const code = token.content;
+  const escapedCode = code
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    // Fenced code blocks (``` or ```)
-    .replace(/```[\w]*\n?([\s\S]*?)```/g, "<pre><code>$1</code></pre>")
-    // Inline code
-    .replace(/`([^`]+)`/g, "<code>$1</code>")
-    // Bold
-    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-    // Italic
-    .replace(/_([^_]+)_/g, "<em>$1</em>")
-    // Bullet list items
-    .replace(/^[-*] (.+)$/gm, "<li>$1</li>")
-    // Wrap consecutive <li> in <ul>
-    .replace(/(<li>.*<\/li>\n?)+/g, (m) => `<ul>${m}</ul>`)
-    // Line breaks → paragraphs (double newline)
-    .split(/\n\n+/)
-    .map((block) => {
-      if (block.startsWith("<pre>") || block.startsWith("<ul>")) return block;
-      return `<p>${block.replace(/\n/g, "<br>")}</p>`;
-    })
-    .join("\n");
+    .replace(/>/g, "&gt;");
 
-  return html;
+  return `<div class="code-block-wrapper">
+    <div class="code-block-header">
+      <span>${lang}</span>
+      <button data-copy-code="${encodeURIComponent(code)}">Copy</button>
+    </div>
+    <pre><code class="language-${lang}">${escapedCode}</code></pre>
+  </div>`;
+};
+
+/**
+ * Renders markdown string to sanitized HTML.
+ */
+function renderMarkdown(raw: string): string {
+  const rendered = md.render(raw);
+  return DOMPurify.sanitize(rendered, {
+    ADD_ATTR: ["data-copy-code"],
+  });
 }
 
 const StreamedAnswer: Component = () => {
   let containerRef: HTMLDivElement | undefined;
-  let userScrolled = false;
 
-  // Track if user has manually scrolled up
-  const handleScroll = () => {
-    if (!containerRef) return;
-    const atBottom =
-      containerRef.scrollHeight - containerRef.scrollTop - containerRef.clientHeight < 40;
-    userScrolled = !atBottom;
+  const handleClick = (e: MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.tagName === "BUTTON" && target.dataset.copyCode) {
+      const code = decodeURIComponent(target.dataset.copyCode);
+      copyToClipboard(code);
+      target.textContent = "Copied!";
+      setTimeout(() => { target.textContent = "Copy"; }, 1500);
+    }
   };
 
-  onMount(() => containerRef?.addEventListener("scroll", handleScroll));
-  onCleanup(() => containerRef?.removeEventListener("scroll", handleScroll));
+  onMount(() => {
+    containerRef?.addEventListener("click", handleClick);
+  });
 
-  // Auto-scroll to bottom during streaming
-  createEffect(() => {
-    streamedText(); // track
-    if (sessionState() === "streaming" && !userScrolled && containerRef) {
-      containerRef.scrollTop = containerRef.scrollHeight;
-    }
-    // Reset userScrolled when a new session starts
-    if (sessionState() === "streaming" && streamedText() === "") {
-      userScrolled = false;
-    }
+  onCleanup(() => {
+    containerRef?.removeEventListener("click", handleClick);
   });
 
   const isStreaming = () => sessionState() === "streaming";
   const hasContent = () => streamedText().length > 0;
 
+  const renderedHtml = createMemo(() => {
+    const text = streamedText();
+    if (!text) return "";
+    return renderMarkdown(text);
+  });
+
   return (
     <Show when={hasContent() || isStreaming()}>
       <div
         ref={containerRef}
-        class="
-          answer-region answer-content selectable
-          px-4 py-2 overflow-y-auto
-          text-sm text-[--color-text-primary] leading-relaxed
-        "
-        style={{ "max-height": "400px" }}
+        class="answer-region answer-content selectable px-5 pt-1 pb-3 overflow-y-auto text-sm text-[var(--text-primary)] leading-relaxed"
+        style={{ "max-height": "420px" }}
       >
         <span
           class={isStreaming() ? "streaming-cursor" : ""}
-          innerHTML={renderMarkdown(streamedText())}
+          innerHTML={renderedHtml()}
         />
       </div>
     </Show>

@@ -1,6 +1,6 @@
 //! Global hotkey registration and management.
 
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 use crate::state::AppState;
 use crate::window_manager;
@@ -20,15 +20,22 @@ pub fn register_hotkey(app: &AppHandle, shortcut: &str) {
         },
     );
 
-    // Record registration success in app state
+    // Record registration success in app state and notify the frontend
     let registered = result.is_ok();
-    if !registered {
-        log::warn!("Failed to register hotkey '{}'", shortcut_str);
-    }
     {
         let state = app.state::<std::sync::Mutex<AppState>>();
         let mut s = state.lock().unwrap();
         s.hotkey_registered = registered;
+    }
+    if !registered {
+        log::warn!("Failed to register hotkey '{}'", shortcut_str);
+        let _ = app.emit(
+            "hotkey:error",
+            serde_json::json!({
+                "shortcut": shortcut_str,
+                "reason": "Shortcut is already in use by another application. Choose a different hotkey in Settings.",
+            }),
+        );
     }
 }
 
