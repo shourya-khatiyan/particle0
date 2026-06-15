@@ -18,6 +18,28 @@ impl Default for ThemePreference {
     }
 }
 
+/// Configurable keyboard shortcut bindings (frontend-side only).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KeyBindings {
+    pub focus_input: String,
+    pub clear: String,
+    pub toggle_mode: String,
+    pub copy_answer: String,
+    pub toggle_settings: String,
+}
+
+impl Default for KeyBindings {
+    fn default() -> Self {
+        KeyBindings {
+            focus_input: "/".into(),
+            clear: "Ctrl+X".into(),
+            toggle_mode: "Ctrl+Z".into(),
+            copy_answer: "Ctrl+C".into(),
+            toggle_settings: "Ctrl+S".into(),
+        }
+    }
+}
+
 /// All user-configurable app settings.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppSettings {
@@ -31,6 +53,8 @@ pub struct AppSettings {
     pub temperature: f32,
     pub request_timeout_secs: u64,
     pub overlay_width: u32,
+    #[serde(default)]
+    pub keybindings: KeyBindings,
 }
 
 impl Default for AppSettings {
@@ -46,6 +70,7 @@ impl Default for AppSettings {
             temperature: 0.7,
             request_timeout_secs: 30,
             overlay_width: 780,
+            keybindings: KeyBindings::default(),
         }
     }
 }

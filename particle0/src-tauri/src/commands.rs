@@ -15,6 +15,24 @@ use serde::Serialize;
 /// Maximum number of messages kept in conversation history (user+assistant pairs = MAX/2 turns).
 const MAX_HISTORY_MESSAGES: usize = 40;
 
+/// System prompt prepended to every API request.
+/// Follows the 4-block pattern: Role → Objective → Constraints → Format.
+const SYSTEM_PROMPT: &str = "\
+You are a clear-thinking assistant who explains things well.\n\
+\n\
+Objective: Give the user a genuinely useful answer — accurate, well-structured, \
+and at the right depth for the question.\n\
+\n\
+Constraints:\n\
+- Lead with the direct answer, then add context when it adds value.\n\
+- Use plain language. Define technical terms on first use.\n\
+- Match depth to the question: brief for simple, thorough for complex.\n\
+- If a question is ambiguous, answer the most likely reading and note the ambiguity.\n\
+\n\
+Format:\n\
+- Use structure (headings, bullets, numbered lists) when it improves readability.\n\
+- Skip filler phrases and unnecessary qualifiers.";
+
 /// Submit a prompt for inference. Returns the request_id.
 #[tauri::command]
 pub async fn submit_prompt(
@@ -45,17 +63,18 @@ pub async fn submit_prompt(
 
     let request_id = Uuid::new_v4().to_string();
 
-    // Build messages array, respecting history size limit
+    // Build messages array: system prompt + history (if multi-turn) + user message
     let messages: Vec<ChatMessage> = {
         let s = state.lock().unwrap();
-        let mut msgs = if multi_turn && s.multi_turn_enabled {
-            // Keep only the most recent MAX_HISTORY_MESSAGES-1 messages before appending
+        let mut msgs = vec![ChatMessage {
+            role: "system".into(),
+            content: SYSTEM_PROMPT.into(),
+        }];
+        if multi_turn && s.multi_turn_enabled {
             let history = &s.conversation_history;
             let start = history.len().saturating_sub(MAX_HISTORY_MESSAGES - 1);
-            history[start..].to_vec()
-        } else {
-            Vec::new()
-        };
+            msgs.extend_from_slice(&history[start..]);
+        }
         msgs.push(ChatMessage {
             role: "user".into(),
             content: prompt.clone(),
@@ -88,6 +107,20 @@ pub async fn submit_prompt(
             .chat_completion_stream(messages.clone(), temperature, max_tokens)
             .await;
 
+        // Check if cancelled while waiting for HTTP response
+        {
+            let state = app_clone.state::<Mutex<AppState>>();
+            let s = state.lock().unwrap();
+            if s.cancel_requested {
+                drop(s);
+                let _ = app_clone.emit(
+                    "stream:cancelled",
+                    serde_json::json!({ "request_id": rid, "partial_text": "" }),
+                );
+                return;
+            }
+        }
+
         let mut stream = match stream_result {
             Ok(s) => s,
             Err(e) => {
@@ -102,7 +135,9 @@ pub async fn submit_prompt(
                 );
                 let state = app_clone.state::<Mutex<AppState>>();
                 let mut s = state.lock().unwrap();
-                s.active_request_id = None;
+                if s.active_request_id.as_deref() == Some(&rid) {
+                    s.active_request_id = None;
+                }
                 return;
             }
         };
@@ -166,7 +201,9 @@ pub async fn submit_prompt(
                     );
                     let state = app_clone.state::<Mutex<AppState>>();
                     let mut s = state.lock().unwrap();
-                    s.active_request_id = None;
+                    if s.active_request_id.as_deref() == Some(&rid) {
+                        s.active_request_id = None;
+                    }
                     return;
                 }
             }
@@ -227,8 +264,10 @@ pub async fn submit_prompt(
         {
             let state = app_clone.state::<Mutex<AppState>>();
             let mut s = state.lock().unwrap();
-            s.active_request_id = None;
-            s.cancel_requested = false;
+            if s.active_request_id.as_deref() == Some(&rid) {
+                s.active_request_id = None;
+                s.cancel_requested = false;
+            }
             if !was_cancelled && s.multi_turn_enabled {
                 s.conversation_history.push(ChatMessage {
                     role: "user".into(),
@@ -251,10 +290,12 @@ pub async fn submit_prompt(
 }
 
 /// Abort the currently active stream.
+/// Also clears active_request_id so a new request can proceed immediately.
 #[tauri::command]
 pub fn cancel_prompt(state: State<'_, Mutex<AppState>>) {
     let mut s = state.lock().unwrap();
     s.cancel_requested = true;
+    s.active_request_id = None;
 }
 
 /// Typed response for test_connection.
@@ -410,6 +451,23 @@ pub fn clear_history(app: AppHandle, state: State<'_, Mutex<AppState>>) {
     let mut s = state.lock().unwrap();
     s.conversation_history.clear();
     let _ = app.emit("session:history_cleared", serde_json::json!({}));
+}
+
+/// Seeds conversation history with an existing prompt+response pair.
+/// Called when switching from single to memory mode with a visible response.
+#[tauri::command]
+pub fn seed_history(state: State<'_, Mutex<AppState>>, prompt: String, response: String) {
+    let mut s = state.lock().unwrap();
+    if s.conversation_history.is_empty() && !prompt.is_empty() && !response.is_empty() {
+        s.conversation_history.push(ChatMessage {
+            role: "user".into(),
+            content: prompt,
+        });
+        s.conversation_history.push(ChatMessage {
+            role: "assistant".into(),
+            content: response,
+        });
+    }
 }
 
 /// Returns the number of completed turns in the current conversation history.

@@ -20,6 +20,7 @@
     "global-shortcut:allow-register",
     "global-shortcut:allow-unregister",
     "global-shortcut:allow-is-registered",
+    "core:window:allow-start-dragging",
     "clipboard-manager:allow-write-text",
     "clipboard-manager:allow-read-text"
   ]

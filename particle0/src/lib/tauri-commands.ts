@@ -65,6 +65,11 @@ export function setMultiTurn(enabled: boolean): Promise<void> {
   return invoke("set_multi_turn", { enabled });
 }
 
+/** Seed conversation history with an existing prompt+response pair. */
+export function seedHistory(prompt: string, response: string): Promise<void> {
+  return invoke("seed_history", { prompt, response });
+}
+
 /** Clear conversation history without disabling multi-turn mode. */
 export function clearHistory(): Promise<void> {
   return invoke("clear_history");

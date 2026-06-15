@@ -1,102 +1,362 @@
-/* Overlay-specific animations and transitions */
+/* ─── Glass Card — frosted material over native Mica/Acrylic ─── */
 
-/* Streaming cursor blink */
+.glass-card {
+  background: var(--glass-tint);
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  border: 1px solid var(--glass-border);
+  border-radius: 0;
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight);
+  contain: layout paint;
+  animation: card-enter 180ms var(--ease-out) both;
+}
+
+@keyframes card-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.98) translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* ─── Toolbar row (replaces floating pill) ─── */
+
+.toolbar-row {
+  display: flex;
+  align-items: center;
+  padding: 10px 20px 0;
+  gap: 8px;
+}
+
+/* ─── Streaming cursor blink ─── */
+
 @keyframes cursor-blink {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+  50% { opacity: 0.3; }
 }
 
 .streaming-cursor::after {
-  content: "\25CB";
-  display: inline-block;
-  animation: cursor-blink 800ms ease infinite;
-  color: var(--color-accent);
-  margin-left: 2px;
-  font-size: 0.75em;
-  vertical-align: baseline;
-}
-
-/* Answer region height transition */
-.answer-region {
-  transition: max-height var(--duration-normal) ease-out,
-              opacity var(--duration-fast) ease-out;
-}
-
-/* Status dot pulse for connecting state */
-@keyframes pulse-ring {
-  0% { transform: scale(0.8); opacity: 1; }
-  100% { transform: scale(1.6); opacity: 0; }
-}
-
-.status-dot-connecting::before {
   content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: var(--color-warning);
-  animation: pulse-ring 1.2s ease-out infinite;
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: var(--accent);
+  border-radius: 0;
+  animation: cursor-blink 900ms ease infinite;
+  margin-left: 2px;
+  vertical-align: text-bottom;
 }
 
-/* Code block styles within the answer */
-.answer-content pre {
-  background: var(--color-surface-elevated);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-inner);
-  padding: 12px 14px;
-  overflow-x: auto;
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  line-height: 1.6;
-  margin: 10px 0;
+/* ─── Answer region ─── */
+
+.answer-region {
+  animation: content-appear 180ms var(--ease-out) both;
 }
 
-.answer-content code {
-  font-family: var(--font-mono);
-  font-size: 0.82em;
-  background: var(--color-surface-elevated);
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  padding: 1px 5px;
+@keyframes content-appear {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-.answer-content pre code {
-  background: transparent;
-  border: none;
-  padding: 0;
-  font-size: inherit;
+/* ─── Answer content typography ─── */
+
+.answer-content h1 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 16px 0 8px;
+  line-height: 1.4;
+}
+
+.answer-content h2 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 14px 0 6px;
+  line-height: 1.4;
+}
+
+.answer-content h3 {
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-secondary);
+  margin: 12px 0 6px;
+  line-height: 1.4;
 }
 
 .answer-content p {
-  margin-bottom: 8px;
-  line-height: 1.65;
+  margin-bottom: 10px;
+  line-height: 1.7;
+  color: var(--text-primary);
 }
 
 .answer-content p:last-child {
   margin-bottom: 0;
 }
 
-.answer-content ul, .answer-content ol {
-  padding-left: 20px;
-  margin: 6px 0;
-}
-
-.answer-content li {
-  margin-bottom: 4px;
-  line-height: 1.55;
-}
-
 .answer-content strong {
   font-weight: 600;
-  color: var(--color-text-primary);
+  color: var(--text-primary);
 }
 
 .answer-content em {
-  color: var(--color-text-secondary);
+  color: var(--text-secondary);
+  font-style: italic;
 }
 
-/* Input focus ring */
-.input-focus-ring:focus {
-  border-color: var(--color-border);
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.05);
-  outline: none;
+.answer-content a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-color: var(--accent-soft);
+  text-underline-offset: 2px;
+}
+
+.answer-content a:hover {
+  text-decoration-color: var(--accent);
+}
+
+.answer-content blockquote {
+  border-left: 3px solid var(--accent);
+  padding: 4px 12px;
+  margin: 10px 0;
+  color: var(--text-secondary);
+  background: var(--accent-soft);
+  border-radius: 0;
+}
+
+/* ─── Code blocks — header bar + per-block copy ─── */
+
+.answer-content .code-block-wrapper {
+  position: relative;
+  margin: 12px 0;
+  border-radius: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+}
+
+.answer-content .code-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background: var(--surface-elevated);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+
+.answer-content .code-block-header button {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.65rem;
+  font-family: var(--font-sans);
+  padding: 2px 6px;
+  border-radius: 0;
+  transition: color var(--duration-fast) ease, background var(--duration-fast) ease;
+}
+
+.answer-content .code-block-header button:hover {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+}
+
+.answer-content pre {
+  background: var(--glass-code-bg);
+  padding: 14px 16px;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  line-height: 1.65;
+  margin: 0;
+}
+
+.answer-content code {
+  font-family: var(--font-mono);
+  font-size: 0.82em;
+  background: var(--glass-code-bg);
+  border-radius: 0;
+  padding: 2px 6px;
+}
+
+.answer-content pre code {
+  background: transparent;
+  padding: 0;
+  font-size: inherit;
+}
+
+.answer-content ul, .answer-content ol {
+  padding-left: 20px;
+  margin: 8px 0;
+}
+
+.answer-content li {
+  margin-bottom: 5px;
+  line-height: 1.65;
+  color: var(--text-primary);
+}
+
+.answer-content li::marker {
+  color: var(--accent);
+}
+
+.answer-content hr {
+  border: none;
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 16px 0;
+}
+
+/* ─── Footer ─── */
+
+@keyframes footer-appear {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.footer-row {
+  animation: footer-appear 150ms var(--ease-out) 80ms both;
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* ─── Status dot pulse ─── */
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(2); opacity: 0; }
+}
+
+.status-dot-checking::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 0;
+  background: var(--color-warning);
+  animation: pulse-ring 1.4s var(--ease-out) infinite;
+}
+
+/* ─── Button styles ─── */
+
+.btn-ghost {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: color var(--duration-fast) ease, background var(--duration-fast) ease;
+  border-radius: 0;
+}
+
+.btn-ghost:hover {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+}
+
+.btn-ghost:active {
+  background: var(--surface-elevated);
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-text);
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: background var(--duration-fast) ease, transform var(--duration-fast) ease;
+  border-radius: 0;
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+}
+
+.btn-primary:active {
+  background: var(--accent-press);
+  transform: scale(0.97);
+}
+
+.btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-send {
+  background: var(--accent);
+  color: var(--accent-text);
+  border: none;
+  cursor: pointer;
+  transition: background var(--duration-fast) ease, transform var(--duration-fast) var(--ease-out), opacity var(--duration-normal) ease;
+}
+
+.btn-send:hover {
+  background: var(--accent-hover);
+}
+
+.btn-send:active {
+  transform: scale(0.93);
+}
+
+.btn-send:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-stop {
+  background: var(--color-error);
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  transition: background var(--duration-fast) ease, transform var(--duration-fast) ease;
+}
+
+.btn-stop:hover {
+  background: #E11D48;
+}
+
+.btn-stop:active {
+  transform: scale(0.93);
+}
+
+/* ─── Keyboard hint chip ─── */
+
+.kbd-hint {
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--surface-elevated);
+  padding: 2px 6px;
+  border-radius: 0;
+  border: 1px solid var(--border-subtle);
+  font-family: var(--font-sans);
+  line-height: 1.4;
+}
+
+/* ─── Input separator between prompt and answer ─── */
+
+.input-separator {
+  border-top: 1px solid var(--border-subtle);
+  margin: 0 20px;
+}
+
+/* ─── Prompt textarea — no focus border ─── */
+
+.prompt-textarea:focus,
+.prompt-textarea:focus-visible {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
 }

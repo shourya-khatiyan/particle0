@@ -14,6 +14,24 @@ use nim_client::NimClient;
 use settings::AppSettings;
 use state::{AppState, BackendStatus};
 
+/// Applies OS-level background blur behind the transparent window.
+/// Mica (Win 11) is preferred for zero resize cost; Acrylic fallback for Win 10.
+fn apply_window_blur(window: &tauri::WebviewWindow) {
+    #[cfg(target_os = "windows")]
+    {
+        use window_vibrancy::{apply_mica, apply_acrylic};
+        if apply_mica(window, Some(true)).is_err() {
+            let _ = apply_acrylic(window, Some((18, 18, 18, 80)));
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial};
+        let _ = apply_vibrancy(window, NSVisualEffectMaterial::HudWindow, None, None);
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -22,6 +40,11 @@ pub fn run() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(Mutex::new(AppState::default()))
         .setup(|app| {
+            // Apply OS-level blur behind the transparent window
+            if let Some(window) = app.get_webview_window("main") {
+                apply_window_blur(&window);
+            }
+
             // Load settings from disk (or use defaults on first run)
             let settings = AppSettings::load_or_default(app.handle());
 
@@ -65,6 +88,7 @@ pub fn run() {
             commands::resize_overlay,
             commands::update_hotkey,
             commands::set_multi_turn,
+            commands::seed_history,
             commands::clear_history,
             commands::get_turn_count,
             commands::toggle_autostart,

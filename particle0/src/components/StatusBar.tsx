@@ -1,81 +1,35 @@
 /**
- * StatusBar — connection status, model indicator, timing, and hotkey warning.
+ * StatusBar — inline token count and timing metrics.
+ * Displays as a compact text span within the footer row.
  */
 import { Component, Show } from "solid-js";
-import { backendStatus, hotkeyRegistered } from "../signals/settings";
 import { requestMeta, sessionState } from "../signals/session";
 import { formatElapsed, formatTokenCount } from "../lib/format";
 
-const DOT_CLASS: Record<string, string> = {
-  ready: "bg-[var(--color-success)]",
-  checking: "bg-[var(--color-warning)] animate-pulse",
-  unreachable: "bg-[var(--color-error)]",
-  model_missing: "bg-[var(--color-warning)]",
-  not_configured: "bg-[var(--color-text-muted)]",
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  ready: "Connected",
-  checking: "Checking…",
-  unreachable: "Unreachable",
-  model_missing: "Model unavailable",
-  not_configured: "Not configured",
-};
-
 const StatusBar: Component = () => {
-  const status = () => backendStatus();
   const meta = () => requestMeta();
   const state = () => sessionState();
 
-  /** Tokens per second — only valid when we have both token count and elapsed time. */
   const tokensPerSec = () => {
     const m = meta();
     if (!m || m.elapsed_ms === 0) return null;
     return (m.token_count / (m.elapsed_ms / 1000)).toFixed(1);
   };
 
+  const shouldShow = () => state() === "completed" && meta();
+
   return (
-    <div class="flex items-center gap-2 px-4 py-1.5 border-t border-[var(--color-border-subtle)] flex-shrink-0">
-      {/* Status dot */}
-      <span
-        class={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${DOT_CLASS[status()] ?? "bg-[var(--color-text-muted)]"}`}
-      />
-
-      <span class="text-[10px] text-[var(--color-text-muted)] font-medium leading-none">
-        {STATUS_LABEL[status()] ?? "Unknown"}
+    <Show when={shouldShow()}>
+      <span class="text-[11px] text-[var(--text-muted)] tabular-nums flex items-center gap-1">
+        <span>{formatTokenCount(meta()!.token_count)}</span>
+        <span class="opacity-50">&middot;</span>
+        <span>{formatElapsed(meta()!.elapsed_ms)}</span>
+        <Show when={tokensPerSec()}>
+          <span class="opacity-50">&middot;</span>
+          <span>{tokensPerSec()} t/s</span>
+        </Show>
       </span>
-
-      {/* Active request indicator */}
-      <Show when={state() === "streaming" || state() === "connecting"}>
-        <span class="text-[10px] text-[var(--color-text-primary)] font-medium animate-pulse">
-          {state() === "connecting" ? "connecting…" : "streaming"}
-        </span>
-      </Show>
-
-      {/* Hotkey not registered warning */}
-      <Show when={!hotkeyRegistered()}>
-        <span
-          class="text-[10px] text-[var(--color-warning)] font-medium"
-          title="Global hotkey could not be registered. Change it in Settings."
-        >
-          ⚠ hotkey conflict
-        </span>
-      </Show>
-
-      <div class="flex-1" />
-
-      {/* Token count · elapsed · tokens/s after completion */}
-      <Show when={state() === "completed" && meta()}>
-        <span class="text-[10px] text-[var(--color-text-muted)] tabular-nums">
-          {formatTokenCount(meta()!.token_count)}
-          {" · "}
-          {formatElapsed(meta()!.elapsed_ms)}
-          <Show when={tokensPerSec()}>
-            {" · "}{tokensPerSec()} t/s
-          </Show>
-        </span>
-      </Show>
-    </div>
+    </Show>
   );
 };
 

@@ -50,6 +50,9 @@ bytes = "1"
 # Logging
 log = "0.4"
 
+# OS-level window blur (Mica/Acrylic on Windows, Vibrancy on macOS)
+window-vibrancy = "0.7"
+
 [target.'cfg(windows)'.dependencies]
 winreg = "0.52"
 

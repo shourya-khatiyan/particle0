@@ -21,6 +21,24 @@ export type BackendStatus =
 /** Theme preference stored in settings. */
 export type ThemePreference = "dark" | "light" | "system";
 
+/** Configurable keyboard shortcut bindings (frontend-side shortcuts). */
+export interface KeyBindings {
+  focus_input: string;
+  clear: string;
+  toggle_mode: string;
+  copy_answer: string;
+  toggle_settings: string;
+}
+
+/** Default keybindings. */
+export const DEFAULT_KEYBINDINGS: KeyBindings = {
+  focus_input: "/",
+  clear: "Ctrl+X",
+  toggle_mode: "Ctrl+Z",
+  copy_answer: "Ctrl+C",
+  toggle_settings: "Ctrl+S",
+};
+
 /** App settings matching the Rust AppSettings struct. */
 export interface AppSettings {
   nim_base_url: string;
@@ -33,6 +51,7 @@ export interface AppSettings {
   temperature: number;
   request_timeout_secs: number;
   overlay_width: number;
+  keybindings: KeyBindings;
 }
 
 /** Default settings for first-run. */
@@ -47,6 +66,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   temperature: 0.7,
   request_timeout_secs: 30,
   overlay_width: 780,
+  keybindings: { ...DEFAULT_KEYBINDINGS },
 };
 
 /** A single chat message for the NIM API. */

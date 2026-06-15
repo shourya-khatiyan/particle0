@@ -9,7 +9,6 @@ import { resizeOverlay } from "./lib/tauri-commands";
 import { invoke } from "@tauri-apps/api/core";
 import { applyThemeFromSettings, setupSystemThemeListener, appSettings, setBackendStatus, setAppSettings } from "./signals/settings";
 import type { AppSettings, BackendStatus } from "./lib/api-types";
-import { setSettingsOpen } from "./signals/overlay";
 import "./styles/globals.css";
 import "./styles/overlay.css";
 
@@ -50,10 +49,6 @@ const App: Component = () => {
       const settings = await invoke<AppSettings>("load_settings");
       setAppSettings(settings);
       applyThemeFromSettings(settings.theme);
-      // First-run: open settings automatically if NIM is not configured
-      if (!settings.nim_api_key || !settings.nim_model) {
-        setSettingsOpen(true);
-      }
     } catch {}
 
     // ResizeObserver: watch overlay card height and resize Tauri window to match
