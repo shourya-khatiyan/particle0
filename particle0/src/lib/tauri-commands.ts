@@ -48,9 +48,11 @@ export function toggleOverlay(): Promise<void> {
   return invoke("toggle_overlay");
 }
 
-/** Resize overlay window to a new logical height. */
+/** Resize overlay window to a new CSS-pixel height.
+ *  Passes devicePixelRatio so Rust uses the webview's actual DPI
+ *  (can differ from the OS-reported window scale on Windows). */
 export function resizeOverlay(height: number): Promise<void> {
-  return invoke("resize_overlay", { height });
+  return invoke("resize_overlay", { height, dpr: window.devicePixelRatio });
 }
 
 /** Change the global hotkey at runtime. */

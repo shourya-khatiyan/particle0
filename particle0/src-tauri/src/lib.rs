@@ -126,6 +126,22 @@ async fn validate_nim_backend(app: &tauri::AppHandle, settings: &AppSettings) {
         return;
     }
 
+    // Step 4: probe model to verify it actually responds to inference
+    if !settings.nim_model.is_empty() {
+        if let Err(e) = client.probe_model().await {
+            update_backend_status(app, BackendStatus::ModelMissing);
+            let msg = match &e {
+                crate::errors::NimError::ModelNotFound(_) => format!(
+                    "Model '{}' is listed but not responding. It may be unavailable — try a different model.",
+                    settings.nim_model
+                ),
+                _ => format!("Model '{}' failed inference probe: {}", settings.nim_model, e),
+            };
+            emit_unavailable(app, "model_missing", &msg);
+            return;
+        }
+    }
+
     // All checks passed
     update_backend_status(app, BackendStatus::Ready);
     let _ = app.emit("backend:ready", serde_json::json!({ "models": model_ids }));

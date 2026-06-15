@@ -38,8 +38,10 @@
 
 html, body, #root {
   width: 100%;
-  /* min-height lets content grow beyond the current window height so ResizeObserver
-     can read the true scrollHeight instead of being capped by the viewport */
+  /* height: auto overrides UA-stylesheet defaults that pin html/body to viewport height.
+     min-height: 100% ensures the transparent background fills the full window
+     when content is shorter than the window. Together they let the card grow freely. */
+  height: auto;
   min-height: 100%;
   background: transparent;
   /* clip prevents webview scrollbars without creating a new stacking context */

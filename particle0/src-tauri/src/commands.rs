@@ -38,6 +38,9 @@ pub async fn submit_prompt(
         if !s.settings.is_configured() {
             return Err("NIM is not configured. Open Settings to add your API key and model.".into());
         }
+        if matches!(s.backend_status, BackendStatus::ModelMissing) {
+            return Err("Selected model is not responding. Open Settings and pick a different model.".into());
+        }
     }
 
     let request_id = Uuid::new_v4().to_string();
@@ -364,11 +367,11 @@ pub fn toggle_overlay(app: AppHandle) {
 }
 
 /// Resize overlay to a new logical pixel height.
+/// `dpr` is the webview's devicePixelRatio, used for correct CSS-to-physical conversion.
 #[tauri::command]
-pub fn resize_overlay(app: AppHandle, height: f64) {
-    window_manager::resize_overlay(&app, height);
+pub fn resize_overlay(app: AppHandle, height: f64, dpr: f64) {
+    window_manager::resize_overlay(&app, height, dpr);
 }
-
 /// Change the global hotkey at runtime.
 #[tauri::command]
 pub fn update_hotkey(

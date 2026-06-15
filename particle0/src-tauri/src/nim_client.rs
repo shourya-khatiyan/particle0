@@ -41,6 +41,7 @@ pub struct NimClient {
     pub base_url: String,
     pub api_key: String,
     pub model: String,
+    timeout_secs: u64,
 }
 
 impl NimClient {
@@ -59,6 +60,7 @@ impl NimClient {
             base_url: settings.nim_base_url.trim_end_matches('/').to_string(),
             api_key: settings.nim_api_key.clone(),
             model: settings.nim_model.clone(),
+            timeout_secs: settings.request_timeout_secs,
         }
     }
 
@@ -77,6 +79,7 @@ impl NimClient {
             base_url: base_url.trim_end_matches('/').to_string(),
             api_key: api_key.to_string(),
             model: String::new(),
+            timeout_secs: 15,
         }
     }
 
@@ -125,6 +128,50 @@ impl NimClient {
         Ok(body.data)
     }
 
+    /// Quick probe to verify the selected model actually responds to inference.
+    /// Uses a minimal non-streaming request with a short dedicated timeout.
+    pub async fn probe_model(&self) -> Result<(), NimError> {
+        let url = format!("{}/chat/completions", self.base_url);
+        let body = serde_json::json!({
+            "model": self.model,
+            "messages": [{"role": "user", "content": "hi"}],
+            "stream": false,
+            "max_tokens": 1,
+        });
+
+        let probe_client = Client::builder()
+            .timeout(Duration::from_secs(15))
+            .build()
+            .unwrap_or_default();
+
+        let resp = probe_client
+            .post(&url)
+            .bearer_auth(&self.api_key)
+            .header("Content-Type", "application/json")
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| {
+                if e.is_timeout() {
+                    NimError::ModelNotFound(format!(
+                        "{} (model listed but not responding to inference)",
+                        self.model
+                    ))
+                } else {
+                    NimError::NetworkError(e.to_string())
+                }
+            })?;
+
+        match resp.status().as_u16() {
+            200..=299 => Ok(()),
+            401 | 403 => Err(NimError::AuthError),
+            404 => Err(NimError::ModelNotFound(self.model.clone())),
+            422 => Err(NimError::ConfigError("Invalid request parameters".into())),
+            s if s >= 500 => Err(NimError::ServerError(format!("HTTP {s}"))),
+            s => Err(NimError::ServerError(format!("Unexpected status {s}"))),
+        }
+    }
+
     /// Sends a streaming chat completion request.
     /// Returns an async stream of `StreamChunk`s.
     pub async fn chat_completion_stream(
@@ -155,8 +202,15 @@ impl NimClient {
             .header("Accept", "text/event-stream")
             .json(&body)
             .send()
-            .await
-            .map_err(|e| NimError::NetworkError(e.to_string()))?;
+            .await;
+
+        let resp = resp.map_err(|e| {
+            if e.is_timeout() {
+                NimError::Timeout(self.timeout_secs)
+            } else {
+                NimError::NetworkError(e.to_string())
+            }
+        })?;
 
         match resp.status().as_u16() {
             401 | 403 => return Err(NimError::AuthError),

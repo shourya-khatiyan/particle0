@@ -18,7 +18,7 @@ const STATUS_LABEL: Record<string, string> = {
   ready: "Connected",
   checking: "Checking…",
   unreachable: "Unreachable",
-  model_missing: "Model missing",
+  model_missing: "Model unavailable",
   not_configured: "Not configured",
 };
 

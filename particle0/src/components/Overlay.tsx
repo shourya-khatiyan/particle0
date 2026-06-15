@@ -65,16 +65,19 @@ const Overlay: Component = () => {
     window.addEventListener("keydown", handleGlobalKey);
 
     // Resize the Tauri window to match the content height whenever it changes.
-    // Uses scrollHeight so the window never clips any rendered content.
+    // getBoundingClientRect().height returns CSS (logical) pixels precisely.
+    // Math.ceil prevents sub-pixel rounding from clipping the last pixel row.
     if (rootRef) {
       resizeObserver = new ResizeObserver(() => {
         if (rootRef) {
-          resizeOverlay(rootRef.scrollHeight).catch(() => {});
+          const h = Math.ceil(rootRef.getBoundingClientRect().height);
+          resizeOverlay(h).catch(() => {});
         }
       });
       resizeObserver.observe(rootRef);
       // Fire once immediately so the window is sized correctly on first render.
-      resizeOverlay(rootRef.scrollHeight).catch(() => {});
+      const h = Math.ceil(rootRef.getBoundingClientRect().height);
+      resizeOverlay(h).catch(() => {});
     }
   });
 
